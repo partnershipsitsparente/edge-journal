@@ -372,6 +372,30 @@
       min-height: 60px;
     }
 
+  
+    /* ── DASHBOARD UPGRADES ──────────────────────── */
+    .cal-grid-full {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .cal-day-full {
+      min-height: 70px; border-radius: 8px;
+      background: var(--bg3); border: 1px solid transparent;
+      padding: 6px 8px; display: flex; flex-direction: column;
+      cursor: default; transition: border-color .15s;
+    }
+    .cal-day-full:hover { border-color: var(--border); }
+    .cal-day-full.empty { background: transparent; }
+    .cal-day-full.today { border-color: var(--accent) !important; }
+    .cal-day-full.win { background: rgba(0,208,132,0.12); }
+    .cal-day-full.loss { background: rgba(255,77,77,0.1); }
+    .cal-day-full .cdn { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .cal-day-full .cdpnl { font-size: 13px; font-family: var(--mono); font-weight: 700; }
+    .cal-day-full.win .cdpnl { color: var(--green); }
+    .cal-day-full.loss .cdpnl { color: var(--red); }
+    .cal-day-full .cdtrades { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
   </style>
 </head>
 <body>
@@ -445,6 +469,7 @@
         <span id="user-name" class="user-name"></span>
         <button class="user-signout" onclick="window._fbSignOut()">Out</button>
       </div>
+      <button onclick="loadFakeData()" style="width:100%;margin-top:8px;padding:6px;border-radius:6px;border:1px dashed rgba(255,255,255,0.1);background:transparent;color:var(--muted);font-size:10px;cursor:pointer;font-family:inherit">🧪 Load test data</button>
     </div>
   </div>
 
@@ -453,60 +478,90 @@
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
-      <div class="page-title">Dashboard</div>
-      <div class="page-sub" id="dash-date"></div>
-
-      <!-- STAT CARDS -->
-      <div class="stat-row">
-        <div class="stat-card">
-          <div class="stat-label">Net P&amp;L</div>
-          <div class="stat-val" id="s-pnl">$0.00</div>
-          <div class="stat-sub" id="s-pnl-sub">0 trades</div>
+      <!-- HEADER -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div id="dash-greeting" style="font-size:13px;color:var(--muted);margin-bottom:2px"></div>
+          <div class="page-title">Dashboard</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Win Rate</div>
-          <div class="stat-val" id="s-wr">0%</div>
-          <div class="stat-sub" id="s-wr-sub">excl. breakeven</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Profit Factor</div>
-          <div class="stat-val" id="s-pf">—</div>
-          <div class="stat-sub">gross P / gross L</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Avg Win</div>
-          <div class="stat-val" id="s-aw">—</div>
-          <div class="stat-sub" id="s-al">avg loss —</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Avg R:R</div>
-          <div class="stat-val" id="s-rr">—</div>
-          <div class="stat-sub">excl. breakeven</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select class="form-input" id="dash-period" onchange="renderDashboard()" style="width:auto;padding:7px 12px;font-size:12px">
+            <option value="all">All time</option>
+            <option value="today">Today</option>
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+          </select>
+          <button onclick="openLogModal()" class="btn-primary btn" style="padding:8px 16px;font-size:12px">+ Add Trade</button>
         </div>
       </div>
 
-      <!-- EQUITY + CALENDAR -->
-      <div class="charts-row">
+      <!-- STAT CARDS ROW -->
+      <div class="stat-row" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
+        <div class="stat-card">
+          <div class="stat-label">Net P&amp;L <span id="s-pnl-count" style="font-weight:400;color:var(--muted)"></span></div>
+          <div class="stat-val" id="s-pnl" style="font-size:26px">$0.00</div>
+          <div class="stat-sub" id="s-pnl-sub"></div>
+        </div>
+        <div class="stat-card" style="position:relative;overflow:hidden">
+          <div class="stat-label">Profit Factor</div>
+          <div class="stat-val" id="s-pf" style="font-size:26px">—</div>
+          <canvas id="pf-gauge" width="80" height="40" style="position:absolute;bottom:10px;right:10px;opacity:.8"></canvas>
+        </div>
+        <div class="stat-card" style="position:relative;overflow:hidden">
+          <div class="stat-label">Trade Win %</div>
+          <div class="stat-val" id="s-wr" style="font-size:26px">0%</div>
+          <div class="stat-sub" id="s-wr-sub"></div>
+          <canvas id="wr-ring" width="50" height="50" style="position:absolute;bottom:8px;right:10px"></canvas>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Trade Expectancy</div>
+          <div class="stat-val" id="s-exp" style="font-size:26px">—</div>
+          <div class="stat-sub">per trade</div>
+        </div>
+        <div class="stat-card" style="position:relative;overflow:hidden">
+          <div class="stat-label">Avg Win / Avg Loss</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px">
+            <div class="stat-val pos" id="s-aw" style="font-size:20px">—</div>
+            <div class="stat-val neg" id="s-al" style="font-size:16px">—</div>
+          </div>
+          <div id="s-aw-bar" style="margin-top:8px;height:5px;border-radius:3px;background:var(--bg4);overflow:hidden">
+            <div id="s-aw-fill" style="height:100%;background:linear-gradient(90deg,var(--green),var(--red));width:50%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW: Equity + Daily P&L bars -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
         <div class="card">
-          <div class="card-title">Equity Curve</div>
-          <canvas id="equity-chart" height="180"></canvas>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div class="card-title" style="margin-bottom:0">Daily Net Cumulative P&amp;L</div>
+          </div>
+          <canvas id="equity-chart" height="160"></canvas>
         </div>
         <div class="card">
+          <div class="card-title" style="margin-bottom:14px">Net Daily P&amp;L</div>
+          <canvas id="daily-bar-chart" height="160"></canvas>
+        </div>
+      </div>
+
+      <!-- BOTTOM ROW: Calendar + Recent Trades -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px">
+        <div class="card">
           <div class="cal-header">
-            <div class="cal-month" id="cal-month-label"></div>
-            <div style="display:flex;gap:6px">
-              <button class="cal-nav" onclick="calNav(-1)">‹</button>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="cal-nav" onclick="calNav(-1)">‹ TODAY</button>
+              <div class="cal-month" id="cal-month-label"></div>
               <button class="cal-nav" onclick="calNav(1)">›</button>
             </div>
           </div>
-          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-grid-full" id="cal-grid"></div>
         </div>
-      </div>
-
-      <!-- RECENT TRADES -->
-      <div class="card">
-        <div class="card-title">Recent Trades</div>
-        <div id="recent-trades-body"></div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div class="card-title" style="margin-bottom:0">Recent Trades</div>
+          </div>
+          <div id="recent-trades-body"></div>
+        </div>
       </div>
     </div>
 
@@ -732,57 +787,169 @@ function logTrade() {
 
 // ── DASHBOARD ──────────────────────────────────────
 let calYear, calMonth;
+let dailyBarChart = null;
+
+function periodFilter(trades, period) {
+  if (period === 'all') return trades;
+  const now = new Date();
+  const today = now.toISOString().slice(0,10);
+  if (period === 'today') return trades.filter(t => (t.date||'').slice(0,10) === today);
+  if (period === 'week') {
+    const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1);
+    return trades.filter(t => new Date(t.date||'') >= mon);
+  }
+  if (period === 'month') {
+    return trades.filter(t => (t.date||'').startsWith(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')));
+  }
+  return trades;
+}
 
 function renderDashboard() {
   const now = new Date();
-  document.getElementById('dash-date').textContent =
-    now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+  const hr = now.getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  const gEl = document.getElementById('dash-greeting');
+  if (gEl) gEl.textContent = greet + '!';
 
-  const trades = state.trades;
+  const period = document.getElementById('dash-period')?.value || 'all';
+  const trades = periodFilter(state.trades, period);
 
   // Stats — exclude BE from win rate and RR
   const decided = trades.filter(t => t.outcome === 'win' || t.outcome === 'loss');
   const wins    = decided.filter(t => t.outcome === 'win');
   const losses  = decided.filter(t => t.outcome === 'loss');
 
-  const totalPnl  = trades.reduce((s,t) => s + (t.pnl||0), 0);
-  const wr        = decided.length ? (wins.length / decided.length * 100) : 0;
-  const grossW    = wins.reduce((s,t) => s + (t.pnl||0), 0);
-  const grossL    = Math.abs(losses.reduce((s,t) => s + (t.pnl||0), 0));
-  const pf        = grossL > 0 ? (grossW / grossL) : null;
-  const avgWin    = wins.length   ? grossW / wins.length   : null;
-  const avgLoss   = losses.length ? grossL / losses.length : null;
-  const rrTrades  = decided.filter(t => t.rr != null);
-  const avgRR     = rrTrades.length ? rrTrades.reduce((s,t) => s + t.rr, 0) / rrTrades.length : null;
+  const totalPnl = trades.reduce((s,t) => s + (t.pnl||0), 0);
+  const wr       = decided.length ? (wins.length / decided.length * 100) : 0;
+  const grossW   = wins.reduce((s,t) => s + (t.pnl||0), 0);
+  const grossL   = Math.abs(losses.reduce((s,t) => s + (t.pnl||0), 0));
+  const pf       = grossL > 0 ? grossW / grossL : null;
+  const avgWin   = wins.length   ? grossW / wins.length   : null;
+  const avgLoss  = losses.length ? grossL / losses.length : null;
+  const expectancy = avgWin != null && avgLoss != null
+    ? (wr/100 * avgWin) - ((1 - wr/100) * avgLoss) : null;
 
-  // Render stats
+  // Net P&L
   const pnlEl = document.getElementById('s-pnl');
-  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2);
+  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + Math.abs(totalPnl).toFixed(2);
   pnlEl.className = 'stat-val ' + (totalPnl > 0 ? 'pos' : totalPnl < 0 ? 'neg' : '');
-  document.getElementById('s-pnl-sub').textContent = trades.length + ' trade' + (trades.length !== 1 ? 's' : '');
+  pnlEl.style.fontSize = '26px';
+  const cntEl = document.getElementById('s-pnl-count');
+  if (cntEl) cntEl.textContent = trades.length ? '· ' + trades.length : '';
+  document.getElementById('s-pnl-sub').textContent = period === 'all' ? 'all time' : period;
 
-  const wrEl = document.getElementById('s-wr');
-  wrEl.textContent = wr.toFixed(1) + '%';
-  wrEl.className = 'stat-val ' + (wr >= 55 ? 'pos' : wr < 40 ? 'neg' : '');
-  document.getElementById('s-wr-sub').textContent = wins.length + 'W / ' + losses.length + 'L (excl. BE)';
-
+  // Profit Factor
   const pfEl = document.getElementById('s-pf');
   pfEl.textContent = pf != null ? pf.toFixed(2) : '—';
   pfEl.className = 'stat-val ' + (pf != null ? (pf >= 1.5 ? 'pos' : pf < 1 ? 'neg' : '') : '');
+  pfEl.style.fontSize = '26px';
+  drawGauge('pf-gauge', pf != null ? Math.min(pf / 3, 1) : 0, pf >= 1 ? '#00d084' : '#ff4d4d');
 
+  // Win Rate
+  const wrEl = document.getElementById('s-wr');
+  wrEl.textContent = wr.toFixed(1) + '%';
+  wrEl.className = 'stat-val ' + (wr >= 55 ? 'pos' : wr < 40 ? 'neg' : '');
+  wrEl.style.fontSize = '26px';
+  document.getElementById('s-wr-sub').textContent = wins.length + 'W  ' + losses.length + 'L';
+  drawWinRing('wr-ring', wr / 100, wins.length, losses.length);
+
+  // Expectancy
+  const expEl = document.getElementById('s-exp');
+  expEl.textContent = expectancy != null ? (expectancy >= 0 ? '+' : '') + '$' + expectancy.toFixed(2) : '—';
+  expEl.className = 'stat-val ' + (expectancy != null ? (expectancy >= 0 ? 'pos' : 'neg') : '');
+  expEl.style.fontSize = '26px';
+
+  // Avg Win / Loss bar
   const awEl = document.getElementById('s-aw');
-  awEl.textContent = avgWin != null ? '+$' + avgWin.toFixed(0) : '—';
-  awEl.className = 'stat-val pos';
-  document.getElementById('s-al').textContent = avgLoss != null ? 'avg loss $' + avgLoss.toFixed(0) : 'avg loss —';
-
-  const rrEl = document.getElementById('s-rr');
-  rrEl.textContent = avgRR != null ? avgRR.toFixed(2) + 'R' : '—';
-  rrEl.className = 'stat-val ' + (avgRR != null ? (avgRR >= 1 ? 'pos' : 'neg') : '');
+  const alEl = document.getElementById('s-al');
+  if (awEl) { awEl.textContent = avgWin != null ? '+$' + avgWin.toFixed(0) : '—'; }
+  if (alEl) { alEl.textContent = avgLoss != null ? '-$' + avgLoss.toFixed(0) : '—'; }
+  const fill = document.getElementById('s-aw-fill');
+  if (fill && avgWin != null && avgLoss != null) {
+    const ratio = avgWin / (avgWin + avgLoss) * 100;
+    fill.style.width = ratio + '%';
+    fill.style.background = 'linear-gradient(90deg, var(--green) ' + ratio + '%, var(--red) ' + ratio + '%)';
+  }
 
   renderEquity(trades);
+  renderDailyBar(trades);
   if (!calYear) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
   renderCalendar();
   renderRecentTrades(trades);
+}
+
+function drawGauge(id, ratio, color) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const cx = W/2, cy = H - 4, r = H - 8;
+  // Track
+  ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 6;
+  ctx.lineCap = 'round'; ctx.stroke();
+  // Fill
+  if (ratio > 0) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, Math.PI + ratio * Math.PI);
+    ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.stroke();
+  }
+}
+
+function drawWinRing(id, ratio, w, l) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const cx = W/2, cy = H/2, r = Math.min(W,H)/2 - 4;
+  // Track
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(255,77,77,0.3)'; ctx.lineWidth = 5; ctx.stroke();
+  // Win arc
+  if (ratio > 0) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + ratio * Math.PI*2);
+    ctx.strokeStyle = '#00d084'; ctx.lineWidth = 5;
+    ctx.lineCap = 'round'; ctx.stroke();
+  }
+  // Labels
+  if (w > 0 || l > 0) {
+    ctx.fillStyle = '#00d084'; ctx.font = 'bold 9px Geist, sans-serif';
+    ctx.textAlign = 'right'; ctx.fillText(w, cx - 2, cy + 3);
+    ctx.fillStyle = '#ff4d4d';
+    ctx.textAlign = 'left'; ctx.fillText(l, cx + 4, cy + 3);
+  }
+}
+
+function renderDailyBar(trades) {
+  const byDay = {};
+  trades.forEach(t => {
+    const d = (t.date||'').slice(0,10);
+    if (!d) return;
+    byDay[d] = (byDay[d]||0) + (t.pnl||0);
+  });
+  const days = Object.keys(byDay).sort();
+  const vals = days.map(d => parseFloat(byDay[d].toFixed(2)));
+  const colors = vals.map(v => v >= 0 ? 'rgba(0,208,132,0.8)' : 'rgba(255,77,77,0.8)');
+
+  const ctx = document.getElementById('daily-bar-chart')?.getContext('2d');
+  if (!ctx) return;
+  if (dailyBarChart) dailyBarChart.destroy();
+  dailyBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: days.map(d => d.slice(5)), datasets: [{ data: vals, backgroundColor: colors, borderRadius: 3, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#1e1e2a', bodyColor: '#e8e8f0', titleColor: '#6b6b80',
+        callbacks: { label: c => ' $' + c.parsed.y.toFixed(2) }
+      }},
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6b80', font: { size: 10 }, maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6b80', font: { size: 10 }, callback: v => '$'+v } }
+      }
+    }
+  });
 }
 
 // ── EQUITY CURVE ───────────────────────────────────
@@ -854,14 +1021,14 @@ function renderCalendar() {
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('cal-month-label').textContent = months[calMonth] + ' ' + calYear;
 
-  // Build day PnL map
-  const byDay = {};
+  const byDay = {}, tradeCounts = {};
   state.trades.forEach(t => {
     const d = (t.date||'').slice(0,10);
     if (!d) return;
     const [y,m] = d.split('-').map(Number);
     if (y === calYear && m-1 === calMonth) {
       byDay[d] = (byDay[d]||0) + (t.pnl||0);
+      tradeCounts[d] = (tradeCounts[d]||0) + 1;
     }
   });
 
@@ -870,18 +1037,20 @@ function renderCalendar() {
   const days  = new Date(calYear, calMonth+1, 0).getDate();
 
   let html = DAYS.map(d => `<div class="cal-day-label">${d}</div>`).join('');
-  for (let i = 0; i < first; i++) html += '<div class="cal-day empty"></div>';
+  for (let i = 0; i < first; i++) html += '<div class="cal-day-full empty"></div>';
   for (let d = 1; d <= days; d++) {
     const key = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const pnl = byDay[key];
+    const cnt = tradeCounts[key];
     const isToday = key === today;
-    let cls = 'cal-day' + (isToday ? ' today' : '');
-    let pnlHtml = '';
+    let cls = 'cal-day-full' + (isToday ? ' today' : '');
+    let inner = `<div class="cdn">${d}</div>`;
     if (pnl != null) {
       cls += pnl >= 0 ? ' win' : ' loss';
-      pnlHtml = `<div class="cal-day-pnl">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}</div>`;
+      inner += `<div class="cdpnl">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}</div>`;
+      inner += `<div class="cdtrades">${cnt} trade${cnt !== 1 ? 's' : ''}</div>`;
     }
-    html += `<div class="${cls}"><div class="cal-day-num">${d}</div>${pnlHtml}</div>`;
+    html += `<div class="${cls}">${inner}</div>`;
   }
   document.getElementById('cal-grid').innerHTML = html;
 }
@@ -889,27 +1058,24 @@ function renderCalendar() {
 // ── RECENT TRADES ──────────────────────────────────
 function renderRecentTrades(trades) {
   const el = document.getElementById('recent-trades-body');
-  const recent = trades.slice(0, 10);
+  const recent = trades.slice(0, 8);
   if (!recent.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div>No trades yet</div><div style="font-size:11px;margin-top:4px">Click <strong>Add Trade</strong> to log your first trade</div></div>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div>No trades yet</div></div>';
     return;
   }
   const rows = recent.map(t => {
-    const pnlColor = t.pnl > 0 ? '#00d084' : t.pnl < 0 ? '#ff4d4d' : '#888898';
+    const pnlColor = t.pnl > 0 ? 'var(--green)' : t.pnl < 0 ? 'var(--red)' : 'var(--muted)';
     const outcomeCls = t.outcome === 'win' ? 'win' : t.outcome === 'loss' ? 'loss' : 'be';
-    const outcomeLabel = t.outcome === 'be' ? 'BE' : t.outcome.charAt(0).toUpperCase() + t.outcome.slice(1);
+    const outcomeLabel = t.outcome === 'be' ? 'BE' : t.outcome === 'win' ? 'Win' : 'Loss';
     return `<tr>
-      <td style="color:var(--muted);font-size:11px">${t.date||''}</td>
-      <td style="font-weight:600">${t.ticker||''}</td>
-      <td><span class="pill ${t.side}">${t.side}</span></td>
-      <td><span class="pill ${outcomeCls}">${outcomeLabel}</span></td>
-      <td style="font-family:var(--mono);color:${pnlColor};font-weight:600">${t.pnl >= 0 ? '+' : ''}$${(t.pnl||0).toFixed(2)}</td>
-      <td style="font-family:var(--mono);color:var(--muted)">${t.rr != null ? t.rr.toFixed(2)+'R' : '—'}</td>
-      <td style="color:var(--muted);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.notes||''}</td>
+      <td style="color:var(--muted);font-size:10px;font-family:var(--mono)">${(t.date||'').slice(5)}</td>
+      <td style="font-weight:700;font-size:12px">${t.ticker||''}</td>
+      <td><span class="pill ${outcomeCls}" style="font-size:9px">${outcomeLabel}</span></td>
+      <td style="font-family:var(--mono);color:${pnlColor};font-weight:600;font-size:12px;text-align:right">${t.pnl >= 0 ? '+' : ''}$${(t.pnl||0).toFixed(2)}</td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<table class="trades-table">
-    <thead><tr><th>Date</th><th>Ticker</th><th>Side</th><th>Outcome</th><th>P&L</th><th>R:R</th><th>Notes</th></tr></thead>
+  el.innerHTML = `<table class="trades-table" style="font-size:12px">
+    <thead><tr><th>Date</th><th>Symbol</th><th>Result</th><th style="text-align:right">Net P&amp;L</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -1100,6 +1266,33 @@ function focusNote(date) {
   }, 50);
 }
 
+
+
+// ── FAKE DATA ──────────────────────────────────────
+function loadFakeData() {
+  const d = (n) => { const x = new Date(); x.setDate(x.getDate()-n); return x.toISOString().slice(0,10); };
+  const dt = (n, h, m) => d(n) + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00';
+
+  state.trades = [
+    { id:'f1',  ticker:'MNQ', side:'short', outcome:'win',  pnl:256,  rr:0.96, date:d(0),  datetime:dt(0,10,10),  notes:'Clean continuation setup' },
+    { id:'f2',  ticker:'MNQ', side:'short', outcome:'win',  pnl:189,  rr:0.92, date:d(1),  datetime:dt(1,9,45),   notes:'Mech model, textbook entry' },
+    { id:'f3',  ticker:'MNQ', side:'long',  outcome:'loss', pnl:-120, rr:-1.0, date:d(2),  datetime:dt(2,10,30),  notes:'Got shaken out too early' },
+    { id:'f4',  ticker:'MNQ', side:'short', outcome:'win',  pnl:312,  rr:1.4,  date:d(3),  datetime:dt(3,10,0),   notes:'Best trade this week' },
+    { id:'f5',  ticker:'NQ',  side:'short', outcome:'be',   pnl:8,    rr:0.03, date:d(5),  datetime:dt(5,10,15),  notes:'Moved to BE too early' },
+    { id:'f6',  ticker:'MNQ', side:'short', outcome:'win',  pnl:178,  rr:0.88, date:d(7),  datetime:dt(7,9,35),   notes:'Solid execution' },
+    { id:'f7',  ticker:'MNQ', side:'long',  outcome:'loss', pnl:-95,  rr:-0.8, date:d(9),  datetime:dt(9,10,45),  notes:'Chased entry' },
+    { id:'f8',  ticker:'MNQ', side:'short', outcome:'win',  pnl:430,  rr:1.8,  date:d(10), datetime:dt(10,9,50),  notes:'HTF aligned perfectly' },
+    { id:'f9',  ticker:'MNQ', side:'short', outcome:'loss', pnl:-140, rr:-1.0, date:d(12), datetime:dt(12,10,5),  notes:'News spike' },
+    { id:'f10', ticker:'MNQ', side:'short', outcome:'win',  pnl:205,  rr:1.1,  date:d(14), datetime:dt(14,9,40),  notes:'Strong displacement' },
+    { id:'f11', ticker:'MNQ', side:'long',  outcome:'win',  pnl:88,   rr:0.6,  date:d(15), datetime:dt(15,10,20), notes:'Reversed at IFVG' },
+    { id:'f12', ticker:'MNQ', side:'short', outcome:'loss', pnl:-75,  rr:-0.7, date:d(16), datetime:dt(16,10,0),  notes:'Choppy conditions' },
+    { id:'f13', ticker:'MNQ', side:'short', outcome:'win',  pnl:340,  rr:1.5,  date:d(18), datetime:dt(18,9,55),  notes:'Perfect session timing' },
+    { id:'f14', ticker:'MNQ', side:'short', outcome:'win',  pnl:167,  rr:0.9,  date:d(20), datetime:dt(20,10,10), notes:'Clean liquidity sweep' },
+  ];
+  save();
+  renderDashboard();
+  alert('Test data loaded!');
+}
 
 // ── INIT ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
