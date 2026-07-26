@@ -149,11 +149,11 @@
     /* ── MAIN ──────────────────────────────────────── */
     .main {
       flex: 1; height: 100vh;
-      overflow-y: auto; background: var(--bg);
+      overflow-y: auto; overflow-x: hidden; background: var(--bg);
     }
 
     /* ── PAGES ─────────────────────────────────────── */
-    .page { display: none; padding: 28px 32px; }
+    .page { display: none; padding: 28px 32px; min-height: 0; }
     .page.active { display: block; }
 
     .page-title {
@@ -532,20 +532,24 @@
 
       <!-- CHARTS ROW: Equity + Daily P&L bars -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="card" style="height:220px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <div class="card-title" style="margin-bottom:0">Daily Net Cumulative P&amp;L</div>
           </div>
-          <canvas id="equity-chart" height="160"></canvas>
+          <div style="position:relative;height:155px">
+            <canvas id="equity-chart"></canvas>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-title" style="margin-bottom:14px">Net Daily P&amp;L</div>
-          <canvas id="daily-bar-chart" height="160"></canvas>
+        <div class="card" style="height:220px">
+          <div class="card-title" style="margin-bottom:10px">Net Daily P&amp;L</div>
+          <div style="position:relative;height:155px">
+            <canvas id="daily-bar-chart"></canvas>
+          </div>
         </div>
       </div>
 
       <!-- BOTTOM ROW: Calendar + Recent Trades -->
-      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px">
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:12px;align-items:start">
         <div class="card">
           <div class="cal-header">
             <div style="display:flex;align-items:center;gap:8px">
