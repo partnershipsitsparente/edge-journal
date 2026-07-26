@@ -535,6 +535,31 @@
     .pill.win { box-shadow: 0 0 8px rgba(0,208,132,0.2); }
     .pill.loss { box-shadow: 0 0 8px rgba(255,77,77,0.15); }
 
+  
+    /* ── CALENDAR WEEKLY SUMMARY ─────────────────── */
+    .cal-grid-full {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr) 80px;
+    }
+    .cal-week-header {
+      font-size: 10px; font-weight: 600; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted);
+      text-align: center; padding: 4px 0;
+    }
+    .cal-week-summary {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 6px 4px; border-radius: 8px;
+      background: var(--bg4); border: 1px solid var(--border);
+      min-height: 70px; font-size: 10px;
+    }
+    .cal-week-summary .wk-label { color: var(--muted); font-size: 9px; margin-bottom: 3px; }
+    .cal-week-summary .wk-pnl { font-family: var(--mono); font-weight: 700; font-size: 12px; }
+    .cal-week-summary .wk-days { color: var(--muted); font-size: 9px; margin-top: 2px; }
+    .cal-week-summary.pos .wk-pnl { color: var(--green); }
+    .cal-week-summary.neg .wk-pnl { color: var(--red); }
+    .cal-week-summary.neutral .wk-pnl { color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -1176,25 +1201,71 @@ function renderCalendar() {
   });
 
   const today = new Date().toISOString().slice(0,10);
-  const first = new Date(calYear, calMonth, 1).getDay();
-  const days  = new Date(calYear, calMonth+1, 0).getDate();
+  const firstDow = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
 
+  // Headers: 7 day labels + "Week" header
   let html = DAYS.map(d => `<div class="cal-day-label">${d}</div>`).join('');
-  for (let i = 0; i < first; i++) html += '<div class="cal-day-full empty"></div>';
-  for (let d = 1; d <= days; d++) {
-    const key = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  html += '<div class="cal-week-header">Week</div>';
+
+  // Build weeks row by row
+  let dayNum = 1;
+  let dow = firstDow; // current day-of-week position
+
+  // Leading empty cells for first row
+  let rowCells = [];
+  for (let i = 0; i < dow; i++) rowCells.push('<div class="cal-day-full empty"></div>');
+
+  while (dayNum <= daysInMonth) {
+    const key = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
     const pnl = byDay[key];
     const cnt = tradeCounts[key];
     const isToday = key === today;
     let cls = 'cal-day-full' + (isToday ? ' today' : '');
-    let inner = `<div class="cdn">${d}</div>`;
+    let inner = `<div class="cdn">${dayNum}</div>`;
     if (pnl != null) {
       cls += pnl >= 0 ? ' win' : ' loss';
       inner += `<div class="cdpnl">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}</div>`;
       inner += `<div class="cdtrades">${cnt} trade${cnt !== 1 ? 's' : ''}</div>`;
     }
-    html += `<div class="${cls}">${inner}</div>`;
+    rowCells.push(`<div class="${cls}">${inner}</div>`);
+    dow++;
+    dayNum++;
+
+    // End of week (Saturday) or end of month — output row + weekly summary
+    if (dow === 7 || dayNum > daysInMonth) {
+      // Fill trailing empty cells
+      while (dow < 7) {
+        rowCells.push('<div class="cal-day-full empty"></div>');
+        dow++;
+      }
+
+      // Calculate weekly P&L for this row's days
+      let weekPnl = 0, weekDays = 0;
+      rowCells.forEach(cell => {
+        const match = cell.match(/class="cdn">(\d+)<\/div>/);
+        if (match) {
+          const d = parseInt(match[1]);
+          const k = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+          if (byDay[k] != null) { weekPnl += byDay[k]; weekDays++; }
+        }
+      });
+
+      const wkCls = weekPnl > 0 ? 'pos' : weekPnl < 0 ? 'neg' : 'neutral';
+      const wkPnlStr = weekPnl !== 0
+        ? (weekPnl > 0 ? '+' : '') + '$' + Math.abs(weekPnl).toFixed(0)
+        : '$0';
+      const weeklySummary = `<div class="cal-week-summary ${wkCls}">
+        <div class="wk-pnl">${wkPnlStr}</div>
+        <div class="wk-days">${weekDays} day${weekDays !== 1 ? 's' : ''}</div>
+      </div>`;
+
+      html += rowCells.join('') + weeklySummary;
+      rowCells = [];
+      dow = 0;
+    }
   }
+
   document.getElementById('cal-grid').innerHTML = html;
 }
 
