@@ -1395,6 +1395,7 @@ body.light-mode .pd-section{border-bottom-color:rgba(0,0,0,0.06);}
   <div class="page-header">
     <div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-date"></div></div>
     <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="loadFakeData()" style="padding:7px 12px;border-radius:8px;border:1px dashed rgba(255,255,255,0.2);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">🧪 Load Test Data</button>
       <select id="dash-period" class="btn" style="padding:8px 14px" onchange="renderDashboard()">
         <option value="all">All time</option>
         <option value="today">Today</option>
@@ -10927,6 +10928,56 @@ function _updateOverallScore() {
 document.addEventListener('input', function(e) {
   if (e.target && e.target.id && e.target.id.startsWith('sc-')) _updateOverallScore();
 });
+
+
+// ─── FAKE DATA LOADER (testing only) ─────────────────────────────────────────
+function loadFakeData() {
+  if (!confirm('Load fake data for testing? This will overwrite your current data.')) return;
+
+  const today = new Date().toISOString().slice(0,10);
+  const d = (daysAgo) => { const d = new Date(); d.setDate(d.getDate()-daysAgo); return d.toISOString().slice(0,10); };
+
+  state.trades = [
+    { id:'fake1', ticker:'MNQ', side:'short', outcome:'win', quickPnL:256, plannedRR:1.2, quickRR:0.96, date:d(0), datetime:d(0)+'T10:10:00', entryTF:'3m', setupTags:['Continuation'], mistakeTags:[], holdMins:7, grade:'B+', notes:'Clean setup, good patience', firm:'Alpha Futures' },
+    { id:'fake2', ticker:'MNQ', side:'short', outcome:'win', quickPnL:189, plannedRR:1.0, quickRR:0.92, date:d(1), datetime:d(1)+'T09:45:00', entryTF:'2m', setupTags:['Mech Model'], mistakeTags:[], holdMins:4, grade:'A-', notes:'Textbook entry', firm:'Alpha Futures' },
+    { id:'fake3', ticker:'MNQ', side:'long', outcome:'loss', quickPnL:-120, plannedRR:1.5, quickRR:-1.0, date:d(2), datetime:d(2)+'T10:30:00', entryTF:'1m', setupTags:['Continuation'], mistakeTags:['Early Exit'], holdMins:2, grade:'C', notes:'Got shaken out', firm:'Alpha Futures' },
+    { id:'fake4', ticker:'MNQ', side:'short', outcome:'win', quickPnL:312, plannedRR:1.8, quickRR:1.4, date:d(3), datetime:d(3)+'T10:00:00', entryTF:'3m', setupTags:['Mech Model'], mistakeTags:[], holdMins:9, grade:'A', notes:'Best trade this week', firm:'Alpha Futures' },
+    { id:'fake5', ticker:'NQ', side:'short', outcome:'be_win', quickPnL:8, plannedRR:1.2, quickRR:0.03, date:d(5), datetime:d(5)+'T10:15:00', entryTF:'2m', setupTags:['Continuation'], mistakeTags:['Early Exit'], holdMins:3, grade:'C+', notes:'Moved to BE too early, trade ran without me', firm:'Alpha Futures' },
+    { id:'fake6', ticker:'MNQ', side:'short', outcome:'win', quickPnL:178, plannedRR:1.0, quickRR:0.88, date:d(7), datetime:d(7)+'T09:35:00', entryTF:'3m', setupTags:['Mech Model'], mistakeTags:[], holdMins:6, grade:'B', notes:'Solid execution', firm:'Alpha Futures' },
+    { id:'fake7', ticker:'MNQ', side:'long', outcome:'loss', quickPnL:-95, plannedRR:1.2, quickRR:-0.8, date:d(9), datetime:d(9)+'T10:45:00', entryTF:'1m', setupTags:['Continuation'], mistakeTags:['FOMO','Chased Entry'], holdMins:5, grade:'D', notes:'Chased, should have waited', firm:'Alpha Futures' },
+  ];
+
+  state.propAccounts = [{
+    id:'pa1', name:'The One', firm:'Alpha Futures', plan:'Zero Plan', size:50000,
+    status:'funded', maxDD:2000, dailyLimit:1000, startDate:d(30),
+    notes:'Monthly sub - 5 min days in funded - 90% split - 40% consistency - Max 5 accounts - DLL same as eval'
+  }];
+
+  state.journal = {
+    goals: [
+      { id:'g1', title:'Gain 25 lbs', category:'fitness', type:'numeric', startVal:127.2, current:132.5, target:152.2, unit:'lbs', deadline:d(-60), createdAt:d(30) },
+      { id:'g2', title:'10k TikTok Followers', category:'audience', type:'numeric', startVal:3320, current:4150, target:10000, unit:'followers', deadline:d(-60), createdAt:d(30) },
+      { id:'g3', title:'$10k in Payouts', category:'trading', type:'numeric', startVal:0, current:0, target:10000, unit:'dollars', deadline:d(-60), createdAt:d(30) },
+      { id:'g4', title:'Lower Handicap to 14', category:'other', type:'numeric', startVal:20.4, current:18.9, target:14, unit:'handicap', deadline:d(-60), createdAt:d(30) },
+      { id:'g5', title:'Post 90 TikToks', category:'audience', type:'habit', habitTarget:90, habitFreq:'daily', completions:{}, createdAt:d(30) },
+      { id:'g6', title:'Journal Daily', category:'discipline', type:'habit', habitTarget:90, habitFreq:'daily', completions:{}, createdAt:d(30) },
+    ],
+    dailyEntries: {},
+    weeklyResets: {},
+    captures: [
+      { text:'Notice I trade better after gym in the morning', category:'Trade Obs', createdAt:d(1)+'T08:00:00' },
+      { text:'Video idea: show my morning routine before the NY session opens', category:'Content', createdAt:d(2)+'T11:00:00' },
+      { text:'Need to stop moving stop to BE so early - costs me 1R per week', category:'Trade Obs', createdAt:d(3)+'T10:30:00' },
+    ]
+  };
+
+  // Save to localStorage
+  try { localStorage.setItem('edge_journal_v3', JSON.stringify(state)); } catch(e) {}
+  
+  // Re-render current page
+  go('dashboard');
+  alert('Fake data loaded! Navigate around to test everything.');
+}
 
 </script>
 
