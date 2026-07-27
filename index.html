@@ -669,6 +669,62 @@
     .jmcal-day.today-dot { box-shadow: 0 0 0 1px var(--accent); }
     .jmcal-day.empty { cursor: default; }
 
+  
+    /* ── TRADES PAGE ─────────────────────────────── */
+    #trades-main-table th { background: var(--bg3); position:sticky; top:0; z-index:1; }
+    #trades-main-table td { vertical-align: middle; }
+    .trade-row { cursor: pointer; }
+    .trade-row.selected td { background: rgba(124,111,205,0.08) !important; }
+    .trade-row:hover td { background: rgba(124,111,205,0.05); }
+
+    .tdp-section { margin-bottom:20px; }
+    .tdp-section-title {
+      font-size:10px;font-weight:700;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--muted);
+      margin-bottom:10px;padding-bottom:6px;
+      border-bottom:1px solid var(--border);
+    }
+    .tdp-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+    .tdp-stat { background:var(--bg3);border-radius:8px;padding:10px 12px; }
+    .tdp-stat .lbl { font-size:10px;color:var(--muted);margin-bottom:3px; }
+    .tdp-stat .val { font-size:14px;font-weight:700;font-family:var(--mono); }
+    .tdp-tag {
+      display:inline-block;padding:3px 10px;border-radius:20px;
+      font-size:11px;font-weight:600;margin:2px;cursor:pointer;
+      border:1px solid var(--border);background:var(--bg3);color:var(--muted);
+      transition:all .15s;
+    }
+    .tdp-tag.active { background:rgba(124,111,205,0.2);border-color:var(--accent);color:var(--accent); }
+    .tdp-tag:hover { border-color:var(--accent);color:var(--accent); }
+
+    .mistake-tag {
+      display:inline-block;padding:3px 10px;border-radius:20px;
+      font-size:11px;font-weight:600;margin:2px;cursor:pointer;
+      border:1px solid rgba(255,77,77,0.3);background:rgba(255,77,77,0.07);
+      color:var(--red);transition:all .15s;
+    }
+    .mistake-tag.active { background:rgba(255,77,77,0.2);border-color:var(--red); }
+
+    .tdp-note {
+      width:100%;background:var(--bg3);border:1px solid var(--border);
+      border-radius:8px;padding:10px 12px;color:var(--text);
+      font-family:inherit;font-size:12px;line-height:1.6;
+      resize:vertical;outline:none;min-height:80px;
+      transition:border-color .15s;
+    }
+    .tdp-note:focus { border-color:var(--accent); }
+
+    .del-trade-btn {
+      width:100%;padding:8px;border-radius:8px;
+      border:1px solid rgba(255,77,77,0.2);background:transparent;
+      color:var(--red);font-size:12px;cursor:pointer;
+      font-family:inherit;transition:all .15s;margin-top:8px;
+    }
+    .del-trade-btn:hover { background:rgba(255,77,77,0.1); }
+
+    /* Trades sparkline in stat card */
+    #t-spark { opacity:.9; }
+
   </style>
 </head>
 <body>
@@ -871,8 +927,91 @@
       </div>
     </div>
     <div class="page" id="page-trades">
-      <div class="page-title">Trades</div>
-      <div class="page-sub">Coming soon</div>
+      <!-- HEADER STATS -->
+      <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+        <div class="stat-card" style="display:flex;align-items:center;gap:16px">
+          <div style="flex:1">
+            <div class="stat-label">Net Cumulative P&amp;L <span id="t-count" style="font-weight:400;color:var(--muted)"></span></div>
+            <div class="stat-val" id="t-pnl" style="font-size:28px">$0.00</div>
+          </div>
+          <canvas id="t-spark" width="120" height="50" style="flex-shrink:0"></canvas>
+        </div>
+        <div class="stat-card" style="position:relative;overflow:hidden">
+          <div class="stat-label">Profit Factor</div>
+          <div class="stat-val" id="t-pf" style="font-size:28px">—</div>
+          <canvas id="t-pf-gauge" width="80" height="40" style="position:absolute;bottom:10px;right:10px"></canvas>
+        </div>
+        <div class="stat-card" style="position:relative;overflow:hidden">
+          <div class="stat-label">Trade Win %</div>
+          <div class="stat-val" id="t-wr" style="font-size:28px">0%</div>
+          <canvas id="t-wr-ring" width="50" height="50" style="position:absolute;bottom:8px;right:10px"></canvas>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Win / Avg Loss</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px">
+            <div class="stat-val pos" id="t-aw" style="font-size:20px">—</div>
+            <div class="stat-val neg" id="t-al" style="font-size:16px">—</div>
+          </div>
+          <div style="margin-top:8px;height:5px;border-radius:3px;background:var(--bg4);overflow:hidden">
+            <div id="t-aw-fill" style="height:100%;width:50%;background:linear-gradient(90deg,var(--green) 50%,var(--red) 50%)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILTERS -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input class="form-input" id="tf-search" placeholder="Search ticker..." oninput="renderTrades()" style="width:160px;padding:7px 12px;font-size:12px">
+        <select class="form-input" id="tf-outcome" onchange="renderTrades()" style="width:auto;padding:7px 12px;font-size:12px">
+          <option value="">All outcomes</option>
+          <option value="win">Win</option>
+          <option value="loss">Loss</option>
+          <option value="be">Breakeven</option>
+        </select>
+        <select class="form-input" id="tf-side" onchange="renderTrades()" style="width:auto;padding:7px 12px;font-size:12px">
+          <option value="">All sides</option>
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+        <select class="form-input" id="tf-period" onchange="renderTrades()" style="width:auto;padding:7px 12px;font-size:12px">
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+        </select>
+        <button class="btn" onclick="clearTradeFilters()" style="font-size:11px;padding:6px 12px;color:var(--muted)">Clear</button>
+        <button class="btn-primary btn" onclick="openLogModal()" style="margin-left:auto;padding:7px 16px;font-size:12px">+ Add Trade</button>
+      </div>
+
+      <!-- TABLE -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="trades-table" id="trades-main-table">
+          <thead>
+            <tr>
+              <th style="padding:12px 20px">Open Date</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Status</th>
+              <th>Close Date</th>
+              <th>Net P&amp;L</th>
+              <th>R:R</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="trades-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- TRADE DETAIL PANEL -->
+      <div id="trade-detail-panel" style="display:none;position:fixed;top:0;right:0;width:420px;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:500;overflow-y:auto;box-shadow:-8px 0 32px rgba(0,0,0,0.4)">
+        <div style="padding:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div style="font-size:15px;font-weight:700" id="tdp-title">Trade Details</div>
+            <button onclick="closeTradeDetail()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px">×</button>
+          </div>
+          <div id="tdp-body"></div>
+        </div>
+      </div>
     </div>
     <div class="page" id="page-notebook">
       <div class="page-title">Notebook</div>
@@ -1039,6 +1178,7 @@ function go(page) {
   if (nav) nav.classList.add('active');
   if (page === 'dashboard') renderDashboard();
   if (page === 'journal') renderJournal();
+  if (page === 'trades') renderTrades();
 }
 
 // ── LOG TRADE MODAL ────────────────────────────────
@@ -1667,6 +1807,226 @@ function scrollToDay(date) {
   block.scrollIntoView({ behavior:'smooth', block:'start' });
   if (!block.classList.contains('open')) toggleJDay(block);
 }
+
+
+// ── TRADES PAGE ────────────────────────────────────
+const TAGS = ['ICT','SMC','Continuation','Mech Model','Breakout','IFVG','SIBI','BISI','OTE','FVG','Liquidity Sweep','HTF Aligned','Session Open','Reversal'];
+const MISTAKES = ['Early Exit','FOMO','Revenge Trade','Oversized','No Setup','Chased Entry','Ignored SL','Emotional','Late Entry','Moved Stop'];
+
+let selectedTradeId = null;
+
+function renderTrades() {
+  const search  = (document.getElementById('tf-search')?.value||'').toLowerCase();
+  const outcome = document.getElementById('tf-outcome')?.value||'';
+  const side    = document.getElementById('tf-side')?.value||'';
+  const period  = document.getElementById('tf-period')?.value||'all';
+
+  let trades = periodFilter(state.trades, period);
+  if (search)  trades = trades.filter(t => (t.ticker||'').toLowerCase().includes(search));
+  if (outcome) trades = trades.filter(t => t.outcome === outcome);
+  if (side)    trades = trades.filter(t => t.side === side);
+
+  // Header stats
+  const decided = trades.filter(t => t.outcome==='win'||t.outcome==='loss');
+  const wins    = decided.filter(t => t.outcome==='win');
+  const losses  = decided.filter(t => t.outcome==='loss');
+  const totalPnl = trades.reduce((s,t)=>s+(t.pnl||0),0);
+  const grossW  = wins.reduce((s,t)=>s+(t.pnl||0),0);
+  const grossL  = Math.abs(losses.reduce((s,t)=>s+(t.pnl||0),0));
+  const pf      = grossL>0?grossW/grossL:null;
+  const wr      = decided.length?(wins.length/decided.length*100):0;
+  const avgWin  = wins.length?grossW/wins.length:null;
+  const avgLoss = losses.length?grossL/losses.length:null;
+
+  const pnlEl = document.getElementById('t-pnl');
+  if (pnlEl) {
+    pnlEl.textContent = (totalPnl>=0?'+':'')+'$'+Math.abs(totalPnl).toFixed(2);
+    pnlEl.className = 'stat-val '+(totalPnl>0?'pos':totalPnl<0?'neg':'');
+    pnlEl.style.fontSize='28px';
+  }
+  const cEl = document.getElementById('t-count');
+  if (cEl) cEl.textContent = '· '+trades.length;
+
+  const pfEl = document.getElementById('t-pf');
+  if (pfEl) { pfEl.textContent=pf!=null?pf.toFixed(2):'—'; pfEl.className='stat-val '+(pf!=null?(pf>=1.5?'pos':pf<1?'neg':''):''); pfEl.style.fontSize='28px'; }
+  drawGauge('t-pf-gauge', pf!=null?Math.min(pf/3,1):0, pf&&pf>=1?'#00d084':'#ff4d4d');
+
+  const wrEl = document.getElementById('t-wr');
+  if (wrEl) { wrEl.textContent=wr.toFixed(1)+'%'; wrEl.className='stat-val '+(wr>=55?'pos':wr<40?'neg':''); wrEl.style.fontSize='28px'; }
+  drawWinRing('t-wr-ring', wr/100, wins.length, losses.length);
+
+  const awEl=document.getElementById('t-aw'), alEl=document.getElementById('t-al');
+  if (awEl) awEl.textContent=avgWin!=null?'+$'+avgWin.toFixed(0):'—';
+  if (alEl) alEl.textContent=avgLoss!=null?'-$'+avgLoss.toFixed(0):'—';
+  const fill=document.getElementById('t-aw-fill');
+  if (fill&&avgWin!=null&&avgLoss!=null) {
+    const r=avgWin/(avgWin+avgLoss)*100;
+    fill.style.width=r+'%';
+    fill.style.background='linear-gradient(90deg,var(--green) '+r+'%,var(--red) '+r+'%)';
+  }
+
+  // Sparkline
+  drawTradesSparkline(trades);
+
+  // Table
+  const tbody = document.getElementById('trades-tbody');
+  if (!tbody) return;
+  if (!trades.length) {
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">No trades found</td></tr>';
+    return;
+  }
+  const sorted = [...trades].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  tbody.innerHTML = sorted.map(t => {
+    const pnlColor = (t.pnl||0)>0?'var(--green)':(t.pnl||0)<0?'var(--red)':'var(--muted)';
+    const oc = t.outcome==='win'?'win':t.outcome==='loss'?'loss':'be';
+    const ol = t.outcome==='win'?'Win':t.outcome==='loss'?'Loss':'BE';
+    const tags = (t.tags||[]).slice(0,2).map(tg=>`<span class="pill" style="font-size:9px;background:rgba(124,111,205,0.15);color:var(--accent)">${tg}</span>`).join(' ');
+    const sel = selectedTradeId===t.id?' selected':'';
+    return `<tr class="trade-row${sel}" onclick="openTradeDetail('${t.id}')">
+      <td style="color:var(--muted);font-size:11px;font-family:var(--mono)">${t.date||''}</td>
+      <td style="font-weight:700;font-size:13px">${t.ticker||'—'}</td>
+      <td><span class="pill ${t.side||''}">${(t.side||'').toUpperCase()}</span></td>
+      <td><span class="pill ${oc}">${ol}</span></td>
+      <td style="color:var(--muted);font-size:11px;font-family:var(--mono)">${t.date||''}</td>
+      <td style="font-family:var(--mono);color:${pnlColor};font-weight:600">${(t.pnl||0)>=0?'+':''}$${Math.abs(t.pnl||0).toFixed(2)}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">${t.rr!=null?t.rr.toFixed(2)+'R':'—'}</td>
+      <td style="color:var(--muted);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.notes||''}</td>
+      <td>${tags}</td>
+    </tr>`;
+  }).join('');
+}
+
+function drawTradesSparkline(trades) {
+  const canvas = document.getElementById('t-spark');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const sorted = [...trades].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  let cum=0;
+  const pts=[0,...sorted.map(t=>{cum+=(t.pnl||0);return cum;})];
+  if (pts.length<2) { ctx.clearRect(0,0,canvas.width,canvas.height); return; }
+  const W=canvas.width,H=canvas.height;
+  const mn=Math.min(...pts),mx=Math.max(...pts),rng=mx-mn||1;
+  const pad=4;
+  const xs=pts.map((_,i)=>pad+(i/(pts.length-1))*(W-pad*2));
+  const ys=pts.map(v=>pad+(1-(v-mn)/rng)*(H-pad*2));
+  const isPos=pts[pts.length-1]>=0;
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath(); ctx.moveTo(xs[0],ys[0]);
+  xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));
+  ctx.lineTo(xs[xs.length-1],H); ctx.lineTo(xs[0],H); ctx.closePath();
+  ctx.fillStyle=isPos?'rgba(0,208,132,0.15)':'rgba(255,77,77,0.15)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xs[0],ys[0]);
+  xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));
+  ctx.strokeStyle=isPos?'#00d084':'#ff4d4d'; ctx.lineWidth=1.5; ctx.stroke();
+}
+
+function openTradeDetail(id) {
+  const t = state.trades.find(tr=>tr.id===id);
+  if (!t) return;
+  selectedTradeId = id;
+  document.querySelectorAll('.trade-row').forEach(r=>r.classList.remove('selected'));
+  const row = document.querySelector(`[onclick="openTradeDetail('${id}')"]`);
+  if (row) row.classList.add('selected');
+
+  const panel = document.getElementById('trade-detail-panel');
+  const body  = document.getElementById('tdp-body');
+  const title = document.getElementById('tdp-title');
+  if (!panel||!body) return;
+
+  const pnlColor=(t.pnl||0)>0?'var(--green)':(t.pnl||0)<0?'var(--red)':'var(--muted)';
+  const oc=t.outcome==='win'?'win':t.outcome==='loss'?'loss':'be';
+  const ol=t.outcome==='win'?'Win':t.outcome==='loss'?'Loss':'BE';
+  if (title) title.textContent = (t.ticker||'Trade')+' · '+((t.date||'').slice(5)||'');
+
+  const activeTags = t.tags||[];
+  const activeMistakes = t.mistakes||[];
+
+  body.innerHTML = `
+    <!-- KEY STATS -->
+    <div class="tdp-section">
+      <div class="tdp-grid">
+        <div class="tdp-stat"><div class="lbl">Net P&L</div><div class="val" style="color:${pnlColor}">${(t.pnl||0)>=0?'+':''}$${Math.abs(t.pnl||0).toFixed(2)}</div></div>
+        <div class="tdp-stat"><div class="lbl">Outcome</div><div class="val"><span class="pill ${oc}">${ol}</span></div></div>
+        <div class="tdp-stat"><div class="lbl">Side</div><div class="val"><span class="pill ${t.side||''}">${(t.side||'').toUpperCase()}</span></div></div>
+        <div class="tdp-stat"><div class="lbl">R:R</div><div class="val">${t.rr!=null?t.rr.toFixed(2)+'R':'—'}</div></div>
+        <div class="tdp-stat"><div class="lbl">Ticker</div><div class="val">${t.ticker||'—'}</div></div>
+        <div class="tdp-stat"><div class="lbl">Date</div><div class="val" style="font-size:12px">${t.date||'—'}</div></div>
+      </div>
+    </div>
+
+    <!-- TAGS -->
+    <div class="tdp-section">
+      <div class="tdp-section-title">Setup Tags</div>
+      <div>${TAGS.map(tg=>`<span class="tdp-tag${activeTags.includes(tg)?' active':''}" onclick="toggleTradeTag('${id}','${tg}')">${tg}</span>`).join('')}</div>
+    </div>
+
+    <!-- MISTAKES -->
+    <div class="tdp-section">
+      <div class="tdp-section-title">Mistakes</div>
+      <div>${MISTAKES.map(m=>`<span class="mistake-tag${activeMistakes.includes(m)?' active':''}" onclick="toggleTradeMistake('${id}','${m}')">${m}</span>`).join('')}</div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="tdp-section">
+      <div class="tdp-section-title">Notes</div>
+      <textarea class="tdp-note" id="tdp-note-${id}" placeholder="What happened? What did you learn?" onchange="saveTradeNote('${id}',this.value)">${t.notes||''}</textarea>
+    </div>
+
+    <!-- DELETE -->
+    <button class="del-trade-btn" onclick="deleteTrade('${id}')">🗑 Delete trade</button>
+  `;
+
+  panel.style.display='block';
+}
+
+function closeTradeDetail() {
+  document.getElementById('trade-detail-panel').style.display='none';
+  selectedTradeId=null;
+  document.querySelectorAll('.trade-row').forEach(r=>r.classList.remove('selected'));
+}
+
+function toggleTradeTag(id, tag) {
+  const t = state.trades.find(tr=>tr.id===id);
+  if (!t) return;
+  if (!t.tags) t.tags=[];
+  const idx=t.tags.indexOf(tag);
+  if (idx>=0) t.tags.splice(idx,1); else t.tags.push(tag);
+  save();
+  openTradeDetail(id);
+}
+
+function toggleTradeMistake(id, mistake) {
+  const t = state.trades.find(tr=>tr.id===id);
+  if (!t) return;
+  if (!t.mistakes) t.mistakes=[];
+  const idx=t.mistakes.indexOf(mistake);
+  if (idx>=0) t.mistakes.splice(idx,1); else t.mistakes.push(mistake);
+  save();
+  openTradeDetail(id);
+}
+
+function saveTradeNote(id, text) {
+  const t = state.trades.find(tr=>tr.id===id);
+  if (!t) return;
+  t.notes=text; save();
+}
+
+function deleteTrade(id) {
+  if (!confirm('Delete this trade?')) return;
+  state.trades = state.trades.filter(t=>t.id!==id);
+  save(); closeTradeDetail(); renderTrades();
+}
+
+function clearTradeFilters() {
+  ['tf-search','tf-outcome','tf-side'].forEach(id=>{
+    const el=document.getElementById(id);
+    if (el) el.value='';
+  });
+  const per=document.getElementById('tf-period');
+  if (per) per.value='all';
+  renderTrades();
+}
+
 
 // ── INIT ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
