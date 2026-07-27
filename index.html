@@ -725,6 +725,76 @@
     /* Trades sparkline in stat card */
     #t-spark { opacity:.9; }
 
+  
+    /* ── SCREENSHOTS ─────────────────────────────── */
+    .screenshot-upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: var(--bg3);
+    }
+    .screenshot-upload-zone:hover {
+      border-color: var(--accent);
+      background: rgba(124,111,205,0.05);
+    }
+    .screenshot-upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124,111,205,0.1);
+    }
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .screenshot-thumb {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      background: var(--bg4);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: border-color .15s;
+    }
+    .screenshot-thumb:hover { border-color: var(--accent); }
+    .screenshot-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .screenshot-thumb .del-ss {
+      position: absolute; top: 4px; right: 4px;
+      background: rgba(0,0,0,0.7); border: none;
+      color: #fff; width: 22px; height: 22px;
+      border-radius: 50%; font-size: 13px;
+      cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .15s;
+    }
+    .screenshot-thumb:hover .del-ss { opacity: 1; }
+
+    /* Lightbox */
+    #ss-lightbox {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,0.92);
+      display: none; align-items: center;
+      justify-content: center;
+    }
+    #ss-lightbox.open { display: flex; }
+    #ss-lightbox img {
+      max-width: 90vw; max-height: 90vh;
+      border-radius: 8px;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+    }
+    #ss-lightbox .close-lb {
+      position: fixed; top: 20px; right: 24px;
+      background: transparent; border: none;
+      color: #fff; font-size: 28px; cursor: pointer;
+    }
+
   </style>
 </head>
 <body>
@@ -1078,6 +1148,19 @@
       <label class="form-label">Notes</label>
       <input class="form-input" id="t-notes" placeholder="Quick note..." />
     </div>
+    <div class="form-row">
+      <label class="form-label">Screenshots</label>
+      <div class="screenshot-upload-zone" id="modal-ss-zone"
+        onclick="document.getElementById('modal-ss-input').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="handleModalSSDrop(event)">
+        <div style="font-size:22px;margin-bottom:4px">📷</div>
+        <div style="font-size:12px;color:var(--muted)">Click or drag to add chart screenshots</div>
+      </div>
+      <input type="file" id="modal-ss-input" accept="image/*" multiple style="display:none" onchange="handleModalSSSelect(event)">
+      <div class="screenshot-grid" id="modal-ss-grid"></div>
+    </div>
     <div class="btn-row">
       <button class="btn btn-cancel" onclick="closeLogModal()">Cancel</button>
       <button class="btn btn-primary" onclick="logTrade()">Save Trade</button>
@@ -1182,13 +1265,55 @@ function go(page) {
 }
 
 // ── LOG TRADE MODAL ────────────────────────────────
+let _pendingScreenshots = []; // base64 strings for new trade
+
 function openLogModal() {
   document.getElementById('t-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('t-ticker').value = 'MNQ';
   document.getElementById('t-pnl').value = '';
   document.getElementById('t-rr').value = '';
   document.getElementById('t-notes').value = '';
+  _pendingScreenshots = [];
+  renderModalSSGrid();
   document.getElementById('log-modal').classList.add('open');
+}
+
+function renderModalSSGrid() {
+  const grid = document.getElementById('modal-ss-grid');
+  if (!grid) return;
+  if (!_pendingScreenshots.length) { grid.innerHTML=''; return; }
+  grid.innerHTML = _pendingScreenshots.map((src,i) =>
+    `<div class="screenshot-thumb">
+      <img src="${src}" onclick="openLightbox('${src}')">
+      <button class="del-ss" onclick="event.stopPropagation();removeModalSS(${i})">×</button>
+    </div>`
+  ).join('');
+}
+
+function handleModalSSSelect(e) {
+  const files = Array.from(e.target.files);
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => { _pendingScreenshots.push(ev.target.result); renderModalSSGrid(); };
+    r.readAsDataURL(f);
+  });
+  e.target.value = '';
+}
+
+function handleModalSSDrop(e) {
+  e.preventDefault();
+  document.getElementById('modal-ss-zone').classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => { _pendingScreenshots.push(ev.target.result); renderModalSSGrid(); };
+    r.readAsDataURL(f);
+  });
+}
+
+function removeModalSS(idx) {
+  _pendingScreenshots.splice(idx,1);
+  renderModalSSGrid();
 }
 
 function closeLogModal() {
@@ -1208,11 +1333,15 @@ function logTrade() {
     pnl:     pnl,
     rr:      rr,
     notes:   document.getElementById('t-notes').value,
+    screenshots: [..._pendingScreenshots],
   };
+  _pendingScreenshots = [];
   state.trades.unshift(trade);
   save();
   closeLogModal();
-  renderDashboard();
+  const cur = document.querySelector('.page.active')?.id?.replace('page-','');
+  if (cur === 'trades') renderTrades();
+  else renderDashboard();
 }
 
 // ── DASHBOARD ──────────────────────────────────────
@@ -1972,6 +2101,29 @@ function openTradeDetail(id) {
       <textarea class="tdp-note" id="tdp-note-${id}" placeholder="What happened? What did you learn?" onchange="saveTradeNote('${id}',this.value)">${t.notes||''}</textarea>
     </div>
 
+    <!-- SCREENSHOTS -->
+    <div class="tdp-section">
+      <div class="tdp-section-title">Screenshots</div>
+      <div class="screenshot-upload-zone" style="margin-bottom:8px"
+        onclick="document.getElementById('tdp-ss-input-${id}').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="handleTdpSSDrop(event,'${id}')">
+        <div style="font-size:18px;margin-bottom:2px">📷</div>
+        <div style="font-size:11px;color:var(--muted)">Click or drag to add screenshots</div>
+      </div>
+      <input type="file" id="tdp-ss-input-${id}" accept="image/*" multiple style="display:none"
+        onchange="handleTdpSSSelect(event,'${id}')">
+      <div class="screenshot-grid" id="tdp-ss-grid-${id}">
+        ${(t.screenshots||[]).map((src,i) =>
+          `<div class="screenshot-thumb">
+            <img src="${src}" onclick="openLightbox('${src}')">
+            <button class="del-ss" onclick="event.stopPropagation();deleteTradeSS('${id}',${i})">×</button>
+          </div>`
+        ).join('')}
+      </div>
+    </div>
+
     <!-- DELETE -->
     <button class="del-trade-btn" onclick="deleteTrade('${id}')">🗑 Delete trade</button>
   `;
@@ -2027,6 +2179,81 @@ function clearTradeFilters() {
   renderTrades();
 }
 
+
+
+// ── SCREENSHOTS ─────────────────────────────────────
+function handleTdpSSSelect(e, tradeId) {
+  const files = Array.from(e.target.files);
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => { addTradeScreenshot(tradeId, ev.target.result); };
+    r.readAsDataURL(f);
+  });
+  e.target.value = '';
+}
+
+function handleTdpSSDrop(e, tradeId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => { addTradeScreenshot(tradeId, ev.target.result); };
+    r.readAsDataURL(f);
+  });
+}
+
+function addTradeScreenshot(tradeId, src) {
+  const t = state.trades.find(tr => tr.id === tradeId);
+  if (!t) return;
+  if (!t.screenshots) t.screenshots = [];
+  t.screenshots.push(src);
+  save();
+  // Update grid in panel
+  const grid = document.getElementById('tdp-ss-grid-' + tradeId);
+  if (grid) {
+    grid.innerHTML = t.screenshots.map((s, i) =>
+      `<div class="screenshot-thumb">
+        <img src="${s}" onclick="openLightbox('${s}')">
+        <button class="del-ss" onclick="event.stopPropagation();deleteTradeSS('${tradeId}',${i})">×</button>
+      </div>`
+    ).join('');
+  }
+}
+
+function deleteTradeSS(tradeId, idx) {
+  const t = state.trades.find(tr => tr.id === tradeId);
+  if (!t || !t.screenshots) return;
+  t.screenshots.splice(idx, 1);
+  save();
+  const grid = document.getElementById('tdp-ss-grid-' + tradeId);
+  if (grid) {
+    grid.innerHTML = t.screenshots.map((s, i) =>
+      `<div class="screenshot-thumb">
+        <img src="${s}" onclick="openLightbox('${s}')">
+        <button class="del-ss" onclick="event.stopPropagation();deleteTradeSS('${tradeId}',${i})">×</button>
+      </div>`
+    ).join('');
+  }
+}
+
+function openLightbox(src) {
+  const lb = document.getElementById('ss-lightbox');
+  const img = document.getElementById('ss-lightbox-img');
+  if (!lb || !img) return;
+  img.src = src;
+  lb.classList.add('open');
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('ss-lightbox');
+  if (lb) lb.classList.remove('open');
+}
+
+// Close lightbox on escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLightbox();
+});
 
 // ── INIT ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -2116,6 +2343,13 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => { resize(); init(); });
 })();
 </script>
+
+
+<!-- SCREENSHOT LIGHTBOX -->
+<div id="ss-lightbox" onclick="closeLightbox()">
+  <button class="close-lb" onclick="closeLightbox()">×</button>
+  <img id="ss-lightbox-img" src="" alt="">
+</div>
 
 </body>
 </html>
