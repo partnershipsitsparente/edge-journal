@@ -795,6 +795,94 @@
       color: #fff; font-size: 28px; cursor: pointer;
     }
 
+  
+    /* ── REPORTS ─────────────────────────────────── */
+    #reports-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    .report-widget {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .report-widget:hover { border-color: rgba(124,111,205,0.2); }
+    .rw-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .rw-title {
+      font-size: 12px; font-weight: 700;
+      color: var(--text); letter-spacing: .01em;
+    }
+    .rw-remove {
+      background: transparent; border: none;
+      color: var(--muted); font-size: 16px;
+      cursor: pointer; padding: 2px 6px;
+      border-radius: 4px; transition: all .15s;
+      line-height: 1;
+    }
+    .rw-remove:hover { color: var(--red); background: rgba(255,77,77,0.1); }
+    .rw-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12px;
+    }
+    .rw-table th {
+      text-align: left; padding: 8px 18px;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: .07em; text-transform: uppercase;
+      color: var(--muted);
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+    .rw-table th:not(:first-child) { text-align: right; }
+    .rw-table td {
+      padding: 9px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.03);
+      color: var(--text);
+    }
+    .rw-table td:not(:first-child) { text-align: right; font-family: var(--mono); }
+    .rw-table tr:last-child td { border-bottom: none; }
+    .rw-table tr:hover td { background: rgba(124,111,205,0.04); }
+    .rw-bar-wrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .rw-bar-track {
+      flex: 1; height: 4px; background: var(--bg4);
+      border-radius: 2px; overflow: hidden; min-width: 40px;
+    }
+    .rw-bar-fill {
+      height: 100%; border-radius: 2px;
+      background: var(--accent); transition: width .3s;
+    }
+    .rw-bar-fill.pos { background: var(--green); }
+    .rw-bar-fill.neg { background: var(--red); }
+    .rw-empty {
+      padding: 28px 18px; text-align: center;
+      font-size: 12px; color: var(--muted);
+    }
+    .w-col-cb {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--text);
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 10px; cursor: pointer;
+      transition: all .15s;
+    }
+    .w-col-cb:hover { border-color: var(--accent); }
+    .w-col-cb input { accent-color: var(--accent); }
+    .reports-empty {
+      grid-column: 1 / -1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px 20px; color: var(--muted);
+      text-align: center; gap: 12px;
+    }
+
   </style>
 </head>
 <body>
@@ -1088,8 +1176,75 @@
       <div class="page-sub">Coming soon</div>
     </div>
     <div class="page" id="page-reports">
-      <div class="page-title">Reports</div>
-      <div class="page-sub">Coming soon</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <div class="page-title">Reports</div>
+          <div class="page-sub">Your trading patterns and analytics</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="form-input" id="r-period" onchange="renderReports()" style="width:auto;padding:7px 12px;font-size:12px">
+            <option value="all">All time</option>
+            <option value="today">Today</option>
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+          </select>
+          <button class="btn-primary btn" onclick="openAddWidget()" style="padding:8px 16px;font-size:12px">＋ Add Widget</button>
+        </div>
+      </div>
+      <div id="reports-grid"></div>
+
+      <!-- ADD WIDGET MODAL -->
+      <div class="modal-overlay" id="add-widget-modal" onclick="if(event.target===this)closeAddWidget()">
+        <div class="modal" style="width:540px;max-height:80vh">
+          <div class="modal-title">Add Widget</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Choose what to analyze. Every widget uses the same table layout — Trades, Win %, Avg R, Total R, Expectancy.</p>
+          <div style="margin-bottom:14px">
+            <label class="form-label">Analyze by</label>
+            <select class="form-input" id="w-analyze-by" style="width:100%">
+              <optgroup label="Time">
+                <option value="time_of_day">Time of Day</option>
+                <option value="entry_timeframe">Entry Timeframe</option>
+                <option value="weekday">Weekday</option>
+                <option value="month">Month</option>
+                <option value="session">Session</option>
+              </optgroup>
+              <optgroup label="Performance">
+                <option value="outcome">Results (Win/Loss/BE)</option>
+                <option value="symbol">Symbol / Ticker</option>
+                <option value="side">Long vs Short</option>
+              </optgroup>
+              <optgroup label="Trade Quality">
+                <option value="tags">Setup Tags</option>
+                <option value="mistakes">Mistakes</option>
+                <option value="grade">Trade Rating</option>
+              </optgroup>
+              <optgroup label="Strategy">
+                <option value="entry_model">Entry Model</option>
+              </optgroup>
+            </select>
+          </div>
+          <div style="margin-bottom:14px">
+            <label class="form-label">Widget Title (optional)</label>
+            <input class="form-input" id="w-title" placeholder="e.g. Time of Day Analysis" style="width:100%">
+          </div>
+          <div style="margin-bottom:20px">
+            <label class="form-label" style="margin-bottom:8px">Show columns</label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px" id="w-cols">
+              <label class="w-col-cb"><input type="checkbox" value="trades" checked> Trades</label>
+              <label class="w-col-cb"><input type="checkbox" value="winrate" checked> Win %</label>
+              <label class="w-col-cb"><input type="checkbox" value="avgr" checked> Avg R</label>
+              <label class="w-col-cb"><input type="checkbox" value="totalr" checked> Total R</label>
+              <label class="w-col-cb"><input type="checkbox" value="expectancy" checked> Expectancy</label>
+              <label class="w-col-cb"><input type="checkbox" value="pnl"> Net P&amp;L</label>
+              <label class="w-col-cb"><input type="checkbox" value="pf"> Profit Factor</label>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-cancel" onclick="closeAddWidget()">Cancel</button>
+            <button class="btn btn-primary" onclick="addWidget()">Add Widget</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="page" id="page-playbooks">
       <div class="page-title">Playbooks</div>
@@ -1262,6 +1417,7 @@ function go(page) {
   if (page === 'dashboard') renderDashboard();
   if (page === 'journal') renderJournal();
   if (page === 'trades') renderTrades();
+  if (page === 'reports') renderReports();
 }
 
 // ── LOG TRADE MODAL ────────────────────────────────
@@ -2254,6 +2410,268 @@ function closeLightbox() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeLightbox();
 });
+
+
+// ── REPORTS ─────────────────────────────────────────
+// Default widgets shown on first load
+const DEFAULT_WIDGETS = [
+  { id: 'w1', analyzeBy: 'time_of_day',      title: 'Time of Day',    cols: ['trades','winrate','avgr','totalr','expectancy'] },
+  { id: 'w2', analyzeBy: 'outcome',           title: 'Results',        cols: ['trades','winrate','avgr','totalr','expectancy'] },
+  { id: 'w3', analyzeBy: 'weekday',           title: 'Weekday',        cols: ['trades','winrate','avgr','totalr','pnl'] },
+  { id: 'w4', analyzeBy: 'tags',              title: 'Setup Tags',     cols: ['trades','winrate','avgr','totalr','expectancy'] },
+  { id: 'w5', analyzeBy: 'symbol',            title: 'Symbol',         cols: ['trades','winrate','pnl','avgr','pf'] },
+  { id: 'w6', analyzeBy: 'side',              title: 'Long vs Short',  cols: ['trades','winrate','avgr','totalr','expectancy'] },
+];
+
+function getWidgets() {
+  try {
+    const raw = localStorage.getItem('edge_widgets');
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_WIDGETS));
+}
+
+function saveWidgets(widgets) {
+  localStorage.setItem('edge_widgets', JSON.stringify(widgets));
+}
+
+function renderReports() {
+  const grid = document.getElementById('reports-grid');
+  if (!grid) return;
+  const period = document.getElementById('r-period')?.value || 'all';
+  const trades = periodFilter(state.trades, period);
+  const widgets = getWidgets();
+
+  if (!widgets.length) {
+    grid.innerHTML = `<div class="reports-empty">
+      <div style="font-size:36px">📊</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text)">No widgets yet</div>
+      <div style="font-size:12px">Click <strong>＋ Add Widget</strong> to build your first report</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = widgets.map(w => buildWidget(w, trades)).join('');
+}
+
+function buildWidget(w, trades) {
+  const rows = getWidgetRows(w.analyzeBy, trades);
+  const cols = w.cols || ['trades','winrate','avgr','totalr','expectancy'];
+
+  const colHeaders = {
+    trades: 'Trades', winrate: 'Win %', avgr: 'Avg R',
+    totalr: 'Total R', expectancy: 'Expectancy',
+    pnl: 'Net P&L', pf: 'Profit Factor'
+  };
+
+  const thead = `<tr>
+    <th>${getAnalyzeByLabel(w.analyzeBy)}</th>
+    ${cols.map(c => `<th>${colHeaders[c]||c}</th>`).join('')}
+  </tr>`;
+
+  let tbody = '';
+  if (!rows.length) {
+    tbody = `<tr><td colspan="${cols.length+1}" class="rw-empty">No data yet — log trades to see patterns</td></tr>`;
+  } else {
+    const maxTrades = Math.max(...rows.map(r=>r.trades), 1);
+    tbody = rows.map(r => {
+      const cells = cols.map(c => {
+        if (c === 'trades') {
+          const pct = (r.trades / maxTrades * 100).toFixed(0);
+          return `<td><div class="rw-bar-wrap">
+            <span>${r.trades}</span>
+            <div class="rw-bar-track"><div class="rw-bar-fill" style="width:${pct}%"></div></div>
+          </div></td>`;
+        }
+        if (c === 'winrate') {
+          const wr = r.winrate;
+          const cls = wr >= 55 ? 'pos' : wr < 40 ? 'neg' : '';
+          return `<td><div class="rw-bar-wrap">
+            <span style="color:${wr>=55?'var(--green)':wr<40?'var(--red)':'var(--text)'}">${wr.toFixed(1)}%</span>
+            <div class="rw-bar-track"><div class="rw-bar-fill ${cls}" style="width:${wr}%"></div></div>
+          </div></td>`;
+        }
+        if (c === 'avgr') return `<td style="color:${r.avgr>=1?'var(--green)':r.avgr<0?'var(--red)':'var(--text)'}">${r.avgr.toFixed(2)}R</td>`;
+        if (c === 'totalr') return `<td style="color:${r.totalr>=0?'var(--green)':'var(--red)'}">${r.totalr>=0?'+':''}${r.totalr.toFixed(2)}R</td>`;
+        if (c === 'expectancy') return `<td style="color:${r.expectancy>=0?'var(--green)':'var(--red)'}">${r.expectancy>=0?'+':''}${r.expectancy.toFixed(2)}</td>`;
+        if (c === 'pnl') return `<td style="color:${r.pnl>=0?'var(--green)':'var(--red)'}">${r.pnl>=0?'+':''}$${Math.abs(r.pnl).toFixed(0)}</td>`;
+        if (c === 'pf') return `<td>${r.pf!=null?r.pf.toFixed(2):'—'}</td>`;
+        return '<td>—</td>';
+      }).join('');
+      return `<tr><td style="font-weight:600">${r.label}</td>${cells}</tr>`;
+    }).join('');
+  }
+
+  return `<div class="report-widget" id="widget-${w.id}">
+    <div class="rw-header">
+      <div class="rw-title">📊 ${w.title}</div>
+      <button class="rw-remove" onclick="removeWidget('${w.id}')" title="Remove widget">×</button>
+    </div>
+    <table class="rw-table">
+      <thead>${thead}</thead>
+      <tbody>${tbody}</tbody>
+    </table>
+  </div>`;
+}
+
+function getAnalyzeByLabel(key) {
+  const map = {
+    time_of_day:'Time', entry_timeframe:'Timeframe', weekday:'Weekday',
+    month:'Month', session:'Session', outcome:'Result', symbol:'Symbol',
+    side:'Side', tags:'Setup Tag', mistakes:'Mistake', grade:'Rating',
+    entry_model:'Entry Model'
+  };
+  return map[key] || key;
+}
+
+function getWidgetRows(analyzeBy, trades) {
+  const groups = {};
+
+  trades.forEach(t => {
+    let keys = [];
+
+    if (analyzeBy === 'time_of_day') {
+      const dt = t.datetime || t.date || '';
+      const time = dt.slice(11,16);
+      if (!time) return;
+      // Round to 15-min buckets
+      const [h,m] = time.split(':').map(Number);
+      const bucket = h + ':' + String(Math.floor(m/15)*15).padStart(2,'0');
+      keys = [bucket];
+    }
+    else if (analyzeBy === 'entry_timeframe') {
+      keys = [t.entryTF || t.timeframe || 'Unknown'];
+    }
+    else if (analyzeBy === 'weekday') {
+      if (!t.date) return;
+      const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      keys = [days[new Date(t.date+'T12:00:00').getDay()]];
+    }
+    else if (analyzeBy === 'month') {
+      if (!t.date) return;
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      keys = [months[new Date(t.date+'T12:00:00').getMonth()]];
+    }
+    else if (analyzeBy === 'session') {
+      const dt = t.datetime || '';
+      const time = dt.slice(11,16);
+      if (!time) { keys = ['Unknown']; }
+      else {
+        const [h,m] = time.split(':').map(Number);
+        const mins = h*60+m;
+        if (mins < 9*60+30) keys = ['Pre-Market'];
+        else if (mins < 11*60) keys = ['New York AM'];
+        else if (mins < 12*60) keys = ['Mid-Day'];
+        else keys = ['Afternoon'];
+      }
+    }
+    else if (analyzeBy === 'outcome') {
+      const map = {win:'Win',loss:'Loss',be:'Breakeven'};
+      keys = [map[t.outcome] || t.outcome || 'Unknown'];
+    }
+    else if (analyzeBy === 'symbol') {
+      keys = [t.ticker || 'Unknown'];
+    }
+    else if (analyzeBy === 'side') {
+      keys = [t.side ? t.side.charAt(0).toUpperCase()+t.side.slice(1) : 'Unknown'];
+    }
+    else if (analyzeBy === 'tags') {
+      keys = (t.tags||[]).length ? t.tags : ['Untagged'];
+    }
+    else if (analyzeBy === 'mistakes') {
+      keys = (t.mistakes||[]).length ? t.mistakes : ['No Mistakes'];
+    }
+    else if (analyzeBy === 'grade') {
+      keys = [t.grade || 'Ungraded'];
+    }
+    else if (analyzeBy === 'entry_model') {
+      keys = [t.entryModel || t.entry_model || 'Unknown'];
+    }
+
+    keys.forEach(key => {
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(t);
+    });
+  });
+
+  // Sort keys
+  let sortedKeys = Object.keys(groups);
+  if (analyzeBy === 'time_of_day') sortedKeys.sort();
+  else if (analyzeBy === 'weekday') {
+    const order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    sortedKeys.sort((a,b) => order.indexOf(a) - order.indexOf(b));
+  }
+  else if (analyzeBy === 'month') {
+    const order = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    sortedKeys.sort((a,b) => order.indexOf(a) - order.indexOf(b));
+  }
+  else {
+    sortedKeys.sort((a,b) => groups[b].length - groups[a].length);
+  }
+
+  return sortedKeys.map(key => {
+    const ts = groups[key];
+    const decided = ts.filter(t => t.outcome==='win'||t.outcome==='loss');
+    const wins    = decided.filter(t => t.outcome==='win');
+    const losses  = decided.filter(t => t.outcome==='loss');
+    const wr      = decided.length ? wins.length/decided.length*100 : 0;
+    const grossW  = wins.reduce((s,t)=>s+(t.pnl||0),0);
+    const grossL  = Math.abs(losses.reduce((s,t)=>s+(t.pnl||0),0));
+    const pf      = grossL>0?grossW/grossL:null;
+    const rrTs    = decided.filter(t=>t.rr!=null);
+    const avgr    = rrTs.length?rrTs.reduce((s,t)=>s+t.rr,0)/rrTs.length:0;
+    const totalr  = rrTs.reduce((s,t)=>s+t.rr,0);
+    const avgWin  = wins.length?(wins.filter(t=>t.rr!=null).reduce((s,t)=>s+t.rr,0)/wins.filter(t=>t.rr!=null).length)||0:0;
+    const avgLoss = losses.length?(losses.filter(t=>t.rr!=null).reduce((s,t)=>s+Math.abs(t.rr),0)/losses.filter(t=>t.rr!=null).length)||0:0;
+    const expectancy = (wr/100*avgWin) - ((1-wr/100)*avgLoss);
+    const pnl     = ts.reduce((s,t)=>s+(t.pnl||0),0);
+    return { label:key, trades:ts.length, winrate:wr, avgr, totalr, expectancy, pnl, pf };
+  });
+}
+
+function openAddWidget() {
+  document.getElementById('w-title').value = '';
+  document.getElementById('add-widget-modal').classList.add('open');
+}
+
+function closeAddWidget() {
+  document.getElementById('add-widget-modal').classList.remove('open');
+}
+
+function addWidget() {
+  const analyzeBy = document.getElementById('w-analyze-by').value;
+  const titleInput = document.getElementById('w-title').value.trim();
+  const cols = Array.from(document.querySelectorAll('#w-cols input:checked')).map(cb=>cb.value);
+
+  const labelMap = {
+    time_of_day:'Time of Day', entry_timeframe:'Entry Timeframe',
+    weekday:'Weekday', month:'Month', session:'Session',
+    outcome:'Results', symbol:'Symbol', side:'Long vs Short',
+    tags:'Setup Tags', mistakes:'Mistakes', grade:'Trade Rating',
+    entry_model:'Entry Model'
+  };
+
+  const widget = {
+    id: 'w'+Date.now(),
+    analyzeBy,
+    title: titleInput || labelMap[analyzeBy] || analyzeBy,
+    cols: cols.length ? cols : ['trades','winrate','avgr','totalr','expectancy']
+  };
+
+  const widgets = getWidgets();
+  widgets.push(widget);
+  saveWidgets(widgets);
+  closeAddWidget();
+  renderReports();
+}
+
+function removeWidget(id) {
+  if (!confirm('Remove this widget?')) return;
+  const widgets = getWidgets().filter(w => w.id !== id);
+  saveWidgets(widgets);
+  renderReports();
+}
+
 
 // ── INIT ───────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
