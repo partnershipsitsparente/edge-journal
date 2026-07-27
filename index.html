@@ -560,6 +560,115 @@
     .cal-week-summary.neg .wk-pnl { color: var(--red); }
     .cal-week-summary.neutral .wk-pnl { color: var(--muted); }
 
+  
+    /* ── JOURNAL V2 ──────────────────────────────── */
+    .jday-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .jday-block:hover { border-color: rgba(124,111,205,0.2); }
+    .jday-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; cursor: pointer;
+      user-select: none; transition: background .15s;
+    }
+    .jday-header:hover { background: var(--bg3); }
+    .jday-chevron { color: var(--muted); font-size: 13px; transition: transform .2s; flex-shrink: 0; }
+    .jday-block.open .jday-chevron { transform: rotate(90deg); }
+    .jday-date { font-size: 14px; font-weight: 700; color: var(--text); }
+    .jday-pnl { font-family: var(--mono); font-size: 14px; font-weight: 700; }
+    .jday-pnl.pos { color: var(--green); }
+    .jday-pnl.neg { color: var(--red); }
+    .jday-header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .jday-note-btn {
+      font-size: 11px; font-weight: 600;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); padding: 5px 12px; border-radius: 6px;
+      cursor: pointer; font-family: inherit; transition: all .15s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .jday-note-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .jday-body { display: none; }
+    .jday-block.open .jday-body { display: block; }
+
+    /* Summary bar */
+    .jday-summary {
+      display: grid;
+      grid-template-columns: 180px repeat(4, 1fr);
+      border-top: 1px solid var(--border);
+      background: var(--bg3);
+    }
+    .jday-spark-wrap {
+      padding: 14px 16px 14px 20px;
+      border-right: 1px solid var(--border);
+    }
+    .jday-stats-col {
+      padding: 14px 16px;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .jday-stats-col:last-child { border-right: none; }
+    .jday-stat { display: flex; flex-direction: column; gap: 2px; }
+    .jsl { font-size: 10px; color: var(--muted); letter-spacing:.04em; }
+    .jsv { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+    .jsv.pos { color: var(--green); }
+    .jsv.neg { color: var(--red); }
+
+    /* Pre/post market notes */
+    .jday-notes-section {
+      border-top: 1px solid var(--border);
+      padding: 14px 20px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .jnote-box { display: flex; flex-direction: column; gap: 6px; }
+    .jnote-label {
+      font-size: 10px; font-weight: 600; letter-spacing:.07em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .jnote-ta {
+      width: 100%; background: var(--bg4); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; color: var(--text);
+      font-family: inherit; font-size: 12px; line-height: 1.6;
+      resize: vertical; outline: none; min-height: 70px;
+      transition: border-color .15s;
+    }
+    .jnote-ta:focus { border-color: var(--accent); }
+
+    /* Trade rows */
+    .jday-trades {
+      border-top: 1px solid var(--border);
+    }
+    .jday-trades table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .jday-trades th {
+      text-align: left; padding: 8px 20px;
+      font-size: 10px; font-weight: 600; letter-spacing:.07em;
+      text-transform: uppercase; color: var(--muted);
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+    }
+    .jday-trades td { padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,.03); }
+    .jday-trades tr:last-child td { border-bottom: none; }
+    .jday-trades tr:hover td { background: rgba(124,111,205,0.04); }
+
+    /* Mini cal */
+    .jmcal-label { font-size: 10px; color: var(--muted); text-align:center; padding: 3px 0; font-weight:600; }
+    .jmcal-day {
+      aspect-ratio:1; border-radius:4px; display:flex;
+      align-items:center; justify-content:center;
+      font-size:10px; cursor:pointer; transition: all .15s;
+      color: var(--muted);
+    }
+    .jmcal-day:hover { background: var(--bg3); color: var(--text); }
+    .jmcal-day.has-trades { color: var(--text); font-weight:600; }
+    .jmcal-day.win { background: rgba(0,208,132,0.15); color: var(--green); }
+    .jmcal-day.loss { background: rgba(255,77,77,0.1); color: var(--red); }
+    .jmcal-day.today-dot { box-shadow: 0 0 0 1px var(--accent); }
+    .jmcal-day.empty { cursor: default; }
+
   </style>
 </head>
 <body>
@@ -737,7 +846,9 @@
     <div class="page" id="page-journal">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div class="page-title">Daily Journal</div>
-        <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn" onclick="collapseAllDays()" style="font-size:11px;padding:6px 12px;color:var(--muted)">Collapse all</button>
+          <button class="btn" onclick="expandAllDays()" style="font-size:11px;padding:6px 12px;color:var(--muted)">Expand all</button>
           <select class="form-input" id="j-period" onchange="renderJournal()" style="width:auto;padding:7px 12px;font-size:12px">
             <option value="30">Last 30 days</option>
             <option value="60">Last 60 days</option>
@@ -746,7 +857,18 @@
           </select>
         </div>
       </div>
-      <div id="journal-body"></div>
+      <!-- Two column layout: journal days left, mini calendar right -->
+      <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start">
+        <div id="journal-body"></div>
+        <div class="card" style="position:sticky;top:0">
+          <div class="cal-header" style="margin-bottom:10px">
+            <button class="cal-nav" onclick="jCalNav(-1)">‹</button>
+            <div class="cal-month" id="j-cal-month"></div>
+            <button class="cal-nav" onclick="jCalNav(1)">›</button>
+          </div>
+          <div id="j-mini-cal" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
+        </div>
+      </div>
     </div>
     <div class="page" id="page-trades">
       <div class="page-title">Trades</div>
@@ -1296,6 +1418,8 @@ function renderRecentTrades(trades) {
 
 
 // ── JOURNAL ────────────────────────────────────────
+let jCalYear, jCalMonth;
+
 function renderJournal() {
   const body = document.getElementById('journal-body');
   if (!body) return;
@@ -1311,25 +1435,27 @@ function renderJournal() {
   // Group trades by date
   const byDate = {};
   state.trades.forEach(t => {
-    const d = (t.date || '').slice(0, 10);
+    const d = (t.date||'').slice(0,10);
     if (!d) return;
     if (cutoff && new Date(d) < cutoff) return;
     if (!byDate[d]) byDate[d] = [];
     byDate[d].push(t);
   });
 
-  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+  const dates = Object.keys(byDate).sort((a,b) => b.localeCompare(a));
 
   if (!dates.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div>No trades in this period</div><div style="font-size:11px;margin-top:4px">Log trades to see your daily journal</div></div>';
-    return;
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div>No trades in this period</div><div style="font-size:11px;margin-top:4px">Log a trade to see your daily journal</div></div>';
+  } else {
+    body.innerHTML = dates.map(date => buildDayBlock(date, byDate[date])).join('');
+    // Auto-open first block
+    const first = body.querySelector('.jday-block');
+    if (first) toggleJDay(first);
   }
 
-  body.innerHTML = dates.map(date => buildDayBlock(date, byDate[date])).join('');
-
-  // Auto-open first block
-  const first = body.querySelector('.jday-block');
-  if (first) toggleJDay(first);
+  // Init mini calendar
+  if (!jCalYear) { jCalYear = now.getFullYear(); jCalMonth = now.getMonth(); }
+  renderJMiniCal();
 }
 
 function buildDayBlock(date, trades) {
@@ -1339,80 +1465,90 @@ function buildDayBlock(date, trades) {
   const wins   = trades.filter(t => t.outcome === 'win').length;
   const losses = trades.filter(t => t.outcome === 'loss').length;
   const decided = wins + losses;
-  const wr     = decided ? (wins / decided * 100).toFixed(2) : '0.00';
-  const totalPnl = trades.reduce((s, t) => s + (t.pnl || 0), 0);
-  const grossP = trades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0);
-  const grossL = Math.abs(trades.filter(t => t.pnl < 0).reduce((s, t) => s + t.pnl, 0));
-  const pf     = grossL > 0 ? (grossP / grossL).toFixed(2) : grossP > 0 ? '∞' : '—';
+  const wr     = decided ? (wins / decided * 100).toFixed(1) : '0.0';
+  const totalPnl = trades.reduce((s,t) => s + (t.pnl||0), 0);
+  const grossP = trades.filter(t => (t.pnl||0) > 0).reduce((s,t) => s + t.pnl, 0);
+  const grossL = Math.abs(trades.filter(t => (t.pnl||0) < 0).reduce((s,t) => s + t.pnl, 0));
+  const pf     = grossL > 0 ? (grossP/grossL).toFixed(2) : grossP > 0 ? '∞' : '—';
   const pnlCls = totalPnl >= 0 ? 'pos' : 'neg';
   const pnlStr = (totalPnl >= 0 ? '+' : '') + '$' + Math.abs(totalPnl).toFixed(2);
 
-  const note = (state.journalNotes || {})[date] || '';
+  const notes  = (state.journalNotes || {})[date] || {};
+  const preMkt = notes.pre  || '';
+  const postMkt = notes.post || '';
 
-  // Mini sparkline data
-  const sorted = [...trades].sort((a, b) => (a.datetime || a.date || '').localeCompare(b.datetime || b.date || ''));
-  let cum = 0;
-  const sparkPts = [0, ...sorted.map(t => { cum += t.pnl || 0; return parseFloat(cum.toFixed(2)); })];
-  const sparkId = 'spark-' + date.replace(/-/g, '');
+  const sparkId = 'spark-' + date.replace(/-/g,'');
 
   // Trade rows
   const rows = trades.map(t => {
-    const pnlColor = t.pnl > 0 ? 'var(--green)' : t.pnl < 0 ? 'var(--red)' : 'var(--muted)';
-    const outcomeCls = t.outcome === 'win' ? 'win' : t.outcome === 'loss' ? 'loss' : 'be';
-    const outcomeLabel = t.outcome === 'be' ? 'BE' : t.outcome === 'win' ? 'Win' : 'Loss';
-    const time = t.datetime ? t.datetime.slice(11, 16) : '—';
+    const pnlColor = (t.pnl||0) > 0 ? 'var(--green)' : (t.pnl||0) < 0 ? 'var(--red)' : 'var(--muted)';
+    const oc = t.outcome === 'win' ? 'win' : t.outcome === 'loss' ? 'loss' : 'be';
+    const ol = t.outcome === 'win' ? 'Win' : t.outcome === 'loss' ? 'Loss' : 'BE';
+    const time = (t.datetime||'').slice(11,16) || '—';
     return `<tr>
-      <td style="color:var(--muted);font-family:var(--mono)">${time}</td>
-      <td style="font-weight:700">${t.ticker || '—'}</td>
-      <td><span class="pill ${t.side}">${(t.side || '').toUpperCase()}</span></td>
-      <td style="font-family:var(--mono);color:${pnlColor};font-weight:600">${t.pnl >= 0 ? '+' : ''}$${(t.pnl || 0).toFixed(2)}</td>
-      <td><span class="pill ${outcomeCls}">${outcomeLabel}</span></td>
-      <td style="font-family:var(--mono);color:var(--muted)">${t.rr != null ? t.rr.toFixed(2) + 'R' : '—'}</td>
-      <td style="color:var(--muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.notes || ''}</td>
+      <td style="color:var(--muted);font-family:var(--mono);font-size:11px">${time}</td>
+      <td style="font-weight:700">${t.ticker||'—'}</td>
+      <td><span class="pill ${t.side||''}">${(t.side||'').toUpperCase()}</span></td>
+      <td style="font-family:var(--mono);color:${pnlColor};font-weight:600">${(t.pnl||0) >= 0 ? '+' : ''}$${Math.abs(t.pnl||0).toFixed(2)}</td>
+      <td><span class="pill ${oc}">${ol}</span></td>
+      <td style="font-family:var(--mono);color:var(--muted)">${t.rr != null ? t.rr.toFixed(2)+'R' : '—'}</td>
+      <td style="color:var(--muted);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.notes||''}</td>
     </tr>`;
   }).join('');
-
-  const noteHtml = `<div class="jday-note">
-    <textarea class="jday-note-input" placeholder="Add a note for ${dateLabel}..." onchange="saveJournalNote('${date}', this.value)">${note}</textarea>
-  </div>`;
 
   return `<div class="jday-block" id="jday-${date}">
     <div class="jday-header" onclick="toggleJDay(this.parentElement)">
       <span class="jday-chevron">›</span>
       <span class="jday-date">${dateLabel}</span>
       <span class="jday-pnl ${pnlCls}">Net P&amp;L ${pnlStr}</span>
-      <button class="jday-note-btn" onclick="event.stopPropagation();focusNote('${date}')">+ New Note</button>
+      <div class="jday-header-actions">
+        <button class="jday-note-btn" onclick="event.stopPropagation();focusPreNote('${date}')">✏ Pre-market</button>
+        <button class="jday-note-btn" onclick="event.stopPropagation();focusPostNote('${date}')">📝 Post-market</button>
+      </div>
     </div>
     <div class="jday-body">
       <div class="jday-summary">
-        <div style="display:flex;align-items:center;justify-content:center;padding-right:16px">
-          <canvas id="${sparkId}" width="160" height="60"></canvas>
+        <div class="jday-spark-wrap">
+          <canvas id="${sparkId}" width="160" height="65"></canvas>
         </div>
-        <div class="jday-stats-group">
-          <div class="jday-stat-row"><span class="jday-stat-label">Total Trades</span><span class="jday-stat-val">${trades.length}</span></div>
-          <div class="jday-stat-row"><span class="jday-stat-label">Win Rate</span><span class="jday-stat-val">${wr}%</span></div>
+        <div class="jday-stats-col">
+          <div class="jday-stat"><div class="jsl">Total Trades</div><div class="jsv">${trades.length}</div></div>
+          <div class="jday-stat"><div class="jsl">Win Rate</div><div class="jsv">${wr}%</div></div>
         </div>
-        <div class="jday-stats-group">
-          <div class="jday-stat-row"><span class="jday-stat-label">Winners</span><span class="jday-stat-val pos">${wins}</span></div>
-          <div class="jday-stat-row"><span class="jday-stat-label">Losers</span><span class="jday-stat-val neg">${losses}</span></div>
+        <div class="jday-stats-col">
+          <div class="jday-stat"><div class="jsl">Winners</div><div class="jsv pos">${wins}</div></div>
+          <div class="jday-stat"><div class="jsl">Losers</div><div class="jsv neg">${losses}</div></div>
         </div>
-        <div class="jday-stats-group">
-          <div class="jday-stat-row"><span class="jday-stat-label">Gross P&amp;L</span><span class="jday-stat-val ${pnlCls}">${pnlStr}</span></div>
-          <div class="jday-stat-row"><span class="jday-stat-label">Volume</span><span class="jday-stat-val">${trades.length}</span></div>
+        <div class="jday-stats-col">
+          <div class="jday-stat"><div class="jsl">Gross P&amp;L</div><div class="jsv ${pnlCls}">${pnlStr}</div></div>
+          <div class="jday-stat"><div class="jsl">Commissions</div><div class="jsv">$0.00</div></div>
         </div>
-        <div class="jday-stats-group">
-          <div class="jday-stat-row"><span class="jday-stat-label">Commissions</span><span class="jday-stat-val">$0.00</span></div>
-          <div class="jday-stat-row"><span class="jday-stat-label">Profit Factor</span><span class="jday-stat-val">${pf}</span></div>
+        <div class="jday-stats-col">
+          <div class="jday-stat"><div class="jsl">Profit Factor</div><div class="jsv">${pf}</div></div>
+          <div class="jday-stat"><div class="jsl">Trades</div><div class="jsv">${trades.length}</div></div>
         </div>
       </div>
-      ${noteHtml}
-      <table class="jday-trades-table">
-        <thead><tr>
-          <th>Time</th><th>Ticker</th><th>Side</th><th>Net P&amp;L</th>
-          <th>Outcome</th><th>R:R</th><th>Notes</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+
+      <div class="jday-notes-section">
+        <div class="jnote-box">
+          <div class="jnote-label">🌅 Pre-Market Bias</div>
+          <textarea id="pre-${date}" class="jnote-ta" placeholder="What's your bias going into today's session? What setup are you ONLY taking? What would invalidate your plan?" onchange="saveJNote('${date}','pre',this.value)">${preMkt}</textarea>
+        </div>
+        <div class="jnote-box">
+          <div class="jnote-label">📋 Post-Market Review</div>
+          <textarea id="post-${date}" class="jnote-ta" placeholder="Did you follow your plan? What went well? What would you do differently?" onchange="saveJNote('${date}','post',this.value)">${postMkt}</textarea>
+        </div>
+      </div>
+
+      <div class="jday-trades">
+        <table>
+          <thead><tr>
+            <th>Time</th><th>Ticker</th><th>Side</th><th>Net P&amp;L</th>
+            <th>Outcome</th><th>R:R</th><th>Notes</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
     </div>
   </div>`;
 }
@@ -1421,91 +1557,115 @@ function toggleJDay(block) {
   const wasOpen = block.classList.contains('open');
   block.classList.toggle('open');
   if (!wasOpen) {
-    // Draw sparkline after DOM update
     setTimeout(() => {
-      const date = block.id.replace('jday-', '');
-      const trades = state.trades.filter(t => (t.date || '').slice(0, 10) === date);
-      const sparkId = 'spark-' + date.replace(/-/g, '');
-      drawSparkline(sparkId, trades);
+      const date = block.id.replace('jday-','');
+      const trades = state.trades.filter(t => (t.date||'').slice(0,10) === date);
+      drawSparkline('spark-'+date.replace(/-/g,''), trades);
     }, 10);
   }
+}
+
+function collapseAllDays() {
+  document.querySelectorAll('.jday-block').forEach(b => b.classList.remove('open'));
+}
+
+function expandAllDays() {
+  document.querySelectorAll('.jday-block').forEach(b => {
+    if (!b.classList.contains('open')) toggleJDay(b);
+  });
 }
 
 function drawSparkline(canvasId, trades) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const sorted = [...trades].sort((a, b) => (a.datetime || a.date || '').localeCompare(b.datetime || b.date || ''));
+  const sorted = [...trades].sort((a,b) => (a.datetime||a.date||'').localeCompare(b.datetime||b.date||''));
   let cum = 0;
-  const pts = [0, ...sorted.map(t => { cum += t.pnl || 0; return cum; })];
+  const pts = [0, ...sorted.map(t => { cum += t.pnl||0; return cum; })];
   const W = canvas.width, H = canvas.height;
   const min = Math.min(...pts), max = Math.max(...pts);
   const range = max - min || 1;
   const pad = 6;
-  const xs = pts.map((_, i) => pad + (i / (pts.length - 1)) * (W - pad * 2));
-  const ys = pts.map(v => pad + (1 - (v - min) / range) * (H - pad * 2));
-  const isPos = pts[pts.length - 1] >= 0;
-  ctx.clearRect(0, 0, W, H);
-  // Fill
-  ctx.beginPath();
-  ctx.moveTo(xs[0], ys[0]);
-  xs.forEach((x, i) => ctx.lineTo(x, ys[i]));
-  ctx.lineTo(xs[xs.length - 1], H);
-  ctx.lineTo(xs[0], H);
-  ctx.closePath();
-  ctx.fillStyle = isPos ? 'rgba(0,208,132,0.15)' : 'rgba(255,77,77,0.15)';
-  ctx.fill();
-  // Line
-  ctx.beginPath();
-  ctx.moveTo(xs[0], ys[0]);
-  xs.forEach((x, i) => ctx.lineTo(x, ys[i]));
-  ctx.strokeStyle = isPos ? '#00d084' : '#ff4d4d';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  const xs = pts.map((_,i) => pad + (i/(pts.length-1||1))*(W-pad*2));
+  const ys = pts.map(v => pad + (1-(v-min)/range)*(H-pad*2));
+  const isPos = pts[pts.length-1] >= 0;
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath(); ctx.moveTo(xs[0],ys[0]);
+  xs.forEach((x,i) => ctx.lineTo(x,ys[i]));
+  ctx.lineTo(xs[xs.length-1],H); ctx.lineTo(xs[0],H); ctx.closePath();
+  ctx.fillStyle = isPos ? 'rgba(0,208,132,0.15)' : 'rgba(255,77,77,0.15)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xs[0],ys[0]);
+  xs.forEach((x,i) => ctx.lineTo(x,ys[i]));
+  ctx.strokeStyle = isPos ? '#00d084' : '#ff4d4d'; ctx.lineWidth = 1.8; ctx.stroke();
 }
 
-function saveJournalNote(date, text) {
+function saveJNote(date, type, text) {
   if (!state.journalNotes) state.journalNotes = {};
-  state.journalNotes[date] = text;
+  if (!state.journalNotes[date]) state.journalNotes[date] = {};
+  state.journalNotes[date][type] = text;
   save();
 }
 
-function focusNote(date) {
-  const block = document.getElementById('jday-' + date);
+function focusPreNote(date) {
+  const block = document.getElementById('jday-'+date);
+  if (block && !block.classList.contains('open')) toggleJDay(block);
+  setTimeout(() => { const el = document.getElementById('pre-'+date); if (el) el.focus(); }, 50);
+}
+
+function focusPostNote(date) {
+  const block = document.getElementById('jday-'+date);
+  if (block && !block.classList.contains('open')) toggleJDay(block);
+  setTimeout(() => { const el = document.getElementById('post-'+date); if (el) el.focus(); }, 50);
+}
+
+// Mini calendar for journal sidebar
+function jCalNav(dir) {
+  jCalMonth += dir;
+  if (jCalMonth > 11) { jCalMonth = 0; jCalYear++; }
+  if (jCalMonth < 0)  { jCalMonth = 11; jCalYear--; }
+  renderJMiniCal();
+}
+
+function renderJMiniCal() {
+  const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const mlEl = document.getElementById('j-cal-month');
+  if (mlEl) mlEl.textContent = months[jCalMonth] + ' ' + jCalYear;
+
+  const byDay = {};
+  state.trades.forEach(t => {
+    const d = (t.date||'').slice(0,10);
+    if (!d) return;
+    const [y,m] = d.split('-').map(Number);
+    if (y === jCalYear && m-1 === jCalMonth) {
+      byDay[d] = (byDay[d]||0) + (t.pnl||0);
+    }
+  });
+
+  const today = new Date().toISOString().slice(0,10);
+  const first = new Date(jCalYear, jCalMonth, 1).getDay();
+  const days  = new Date(jCalYear, jCalMonth+1, 0).getDate();
+
+  let html = DAYS.map(d => `<div class="jmcal-label">${d}</div>`).join('');
+  for (let i = 0; i < first; i++) html += '<div class="jmcal-day empty"></div>';
+  for (let d = 1; d <= days; d++) {
+    const key = jCalYear+'-'+String(jCalMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const pnl = byDay[key];
+    const isT = key === today;
+    let cls = 'jmcal-day';
+    if (pnl != null) cls += pnl >= 0 ? ' win has-trades' : ' loss has-trades';
+    if (isT) cls += ' today-dot';
+    const click = pnl != null ? `onclick="scrollToDay('${key}')"` : '';
+    html += `<div class="${cls}" ${click}>${d}</div>`;
+  }
+  document.getElementById('j-mini-cal').innerHTML = html;
+}
+
+function scrollToDay(date) {
+  const block = document.getElementById('jday-'+date);
   if (!block) return;
+  block.scrollIntoView({ behavior:'smooth', block:'start' });
   if (!block.classList.contains('open')) toggleJDay(block);
-  setTimeout(() => {
-    const ta = block.querySelector('.jday-note-input');
-    if (ta) ta.focus();
-  }, 50);
-}
-
-
-
-// ── FAKE DATA ──────────────────────────────────────
-function loadFakeData() {
-  const d = (n) => { const x = new Date(); x.setDate(x.getDate()-n); return x.toISOString().slice(0,10); };
-  const dt = (n, h, m) => d(n) + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00';
-
-  state.trades = [
-    { id:'f1',  ticker:'MNQ', side:'short', outcome:'win',  pnl:256,  rr:0.96, date:d(0),  datetime:dt(0,10,10),  notes:'Clean continuation setup' },
-    { id:'f2',  ticker:'MNQ', side:'short', outcome:'win',  pnl:189,  rr:0.92, date:d(1),  datetime:dt(1,9,45),   notes:'Mech model, textbook entry' },
-    { id:'f3',  ticker:'MNQ', side:'long',  outcome:'loss', pnl:-120, rr:-1.0, date:d(2),  datetime:dt(2,10,30),  notes:'Got shaken out too early' },
-    { id:'f4',  ticker:'MNQ', side:'short', outcome:'win',  pnl:312,  rr:1.4,  date:d(3),  datetime:dt(3,10,0),   notes:'Best trade this week' },
-    { id:'f5',  ticker:'NQ',  side:'short', outcome:'be',   pnl:8,    rr:0.03, date:d(5),  datetime:dt(5,10,15),  notes:'Moved to BE too early' },
-    { id:'f6',  ticker:'MNQ', side:'short', outcome:'win',  pnl:178,  rr:0.88, date:d(7),  datetime:dt(7,9,35),   notes:'Solid execution' },
-    { id:'f7',  ticker:'MNQ', side:'long',  outcome:'loss', pnl:-95,  rr:-0.8, date:d(9),  datetime:dt(9,10,45),  notes:'Chased entry' },
-    { id:'f8',  ticker:'MNQ', side:'short', outcome:'win',  pnl:430,  rr:1.8,  date:d(10), datetime:dt(10,9,50),  notes:'HTF aligned perfectly' },
-    { id:'f9',  ticker:'MNQ', side:'short', outcome:'loss', pnl:-140, rr:-1.0, date:d(12), datetime:dt(12,10,5),  notes:'News spike' },
-    { id:'f10', ticker:'MNQ', side:'short', outcome:'win',  pnl:205,  rr:1.1,  date:d(14), datetime:dt(14,9,40),  notes:'Strong displacement' },
-    { id:'f11', ticker:'MNQ', side:'long',  outcome:'win',  pnl:88,   rr:0.6,  date:d(15), datetime:dt(15,10,20), notes:'Reversed at IFVG' },
-    { id:'f12', ticker:'MNQ', side:'short', outcome:'loss', pnl:-75,  rr:-0.7, date:d(16), datetime:dt(16,10,0),  notes:'Choppy conditions' },
-    { id:'f13', ticker:'MNQ', side:'short', outcome:'win',  pnl:340,  rr:1.5,  date:d(18), datetime:dt(18,9,55),  notes:'Perfect session timing' },
-    { id:'f14', ticker:'MNQ', side:'short', outcome:'win',  pnl:167,  rr:0.9,  date:d(20), datetime:dt(20,10,10), notes:'Clean liquidity sweep' },
-  ];
-  save();
-  renderDashboard();
-  alert('Test data loaded!');
 }
 
 // ── INIT ───────────────────────────────────────────
