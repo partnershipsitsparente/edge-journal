@@ -897,6 +897,76 @@
     .r-sum-val.pos { color: var(--green); }
     .r-sum-val.neg { color: var(--red); }
 
+  
+    /* -- INSIGHTS PANEL -------------------------------- */
+    .insights-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .insight-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      transition: border-color .2s, transform .2s;
+      cursor: default;
+    }
+    .insight-card:hover {
+      border-color: rgba(124,111,205,0.3);
+      transform: translateY(-2px);
+    }
+    .insight-icon { font-size: 18px; margin-bottom: 6px; }
+    .insight-type {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .insight-label {
+      font-size: 15px; font-weight: 700;
+      color: var(--text); margin-bottom: 4px;
+    }
+    .insight-stats {
+      display: flex; gap: 10px; align-items: center;
+      margin-top: 6px;
+    }
+    .insight-stat {
+      font-size: 12px; font-weight: 600;
+      font-family: var(--mono);
+    }
+    .insight-stat.pos { color: var(--green); }
+    .insight-stat.neg { color: var(--red); }
+    .insight-stat.neutral { color: var(--muted); }
+
+    /* -- WIDGET UPGRADES ------------------------------- */
+    .rw-header-sub {
+      font-size: 11px; color: var(--muted);
+      margin-top: 2px;
+    }
+    .rw-best-row td { background: rgba(0,208,132,0.05) !important; }
+    .rw-best-row td:first-child:before {
+      content: '★ '; color: #f5a623; font-size: 11px;
+    }
+    .rw-tooltip {
+      display: inline-block;
+      position: relative; cursor: help;
+    }
+    .rw-tooltip .rw-tip {
+      display: none;
+      position: absolute; bottom: 120%; left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg4); border: 1px solid var(--border);
+      color: var(--text); font-size: 11px; font-weight: 400;
+      padding: 6px 10px; border-radius: 6px;
+      width: 180px; z-index: 100; line-height: 1.4;
+      text-transform: none; letter-spacing: 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+    .rw-tooltip:hover .rw-tip { display: block; }
+    .rw-clickable-row { cursor: pointer; }
+    .rw-clickable-row:hover td { background: rgba(124,111,205,0.08) !important; }
+
   </style>
 </head>
 <body>
@@ -1233,6 +1303,9 @@
       </div>
 
       <!-- WIDGETS GRID -->
+      <!-- INSIGHTS PANEL (fixed, not removable) -->
+      <div id="reports-insights" style="margin-bottom:14px"></div>
+
       <div id="reports-grid"></div>
 
       <!-- ADD WIDGET MODAL -->
@@ -2484,25 +2557,60 @@ function renderReports() {
   if (!grid) return;
   const period = (document.getElementById('r-period')||{}).value || 'all';
   const trades = periodFilter(state.trades, period);
-
-  // -- TOP CHARTS --
   renderReportEquity(trades);
   renderReportDaily(trades);
-
-  // -- SUMMARY --
   renderReportSummary(trades);
-
-  // -- WIDGETS --
+  renderInsights(trades);
   const widgets = getWidgets();
   if (!widgets.length) {
-    grid.innerHTML = `<div class="reports-empty">
-      <div style="font-size:36px">📊</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text)">No widgets yet</div>
-      <div style="font-size:12px">Click <strong>＋ Add Widget</strong> to build your first report</div>
-    </div>`;
+    grid.innerHTML = '<div class="reports-empty"><div style="font-size:36px">&#128202;</div><div style="font-size:15px;font-weight:700;color:var(--text)">No widgets yet</div><div style="font-size:12px">Click <strong>+ Add Widget</strong> to build your first report</div></div>';
     return;
   }
-  grid.innerHTML = widgets.map(w => buildWidget(w, trades)).join('');
+  grid.innerHTML = widgets.map(function(w){ return buildWidget(w, trades); }).join('');
+}
+
+function renderInsights(trades) {
+  const el = document.getElementById('reports-insights');
+  if (!el || !trades.length) { if(el) el.innerHTML=''; return; }
+
+  var best=null, bestScore=-Infinity, worst=null, worstScore=Infinity;
+  var bestSession=null, bestSessionScore=-Infinity, bestSetup=null, bestSetupScore=-Infinity;
+
+  ['weekday','time_of_day','side','symbol'].forEach(function(dim) {
+    var rows = getWidgetRows(dim, trades).filter(function(r){ return r.trades>=2; });
+    rows.forEach(function(r) {
+      var score = r.winrate*0.4 + r.avgr*30;
+      if(score>bestScore){ bestScore=score; best=Object.assign({dim:dim},r); }
+      if(score<worstScore && r.winrate<50){ worstScore=score; worst=Object.assign({dim:dim},r); }
+    });
+  });
+
+  getWidgetRows('session', trades).filter(function(r){ return r.trades>=2; }).forEach(function(r) {
+    var s=r.winrate*0.5+r.pnl*0.001;
+    if(s>bestSessionScore){ bestSessionScore=s; bestSession=r; }
+  });
+
+  getWidgetRows('tags', trades).filter(function(r){ return r.trades>=2 && r.label!=='Untagged'; }).forEach(function(r) {
+    var s=r.winrate*0.5+r.avgr*25;
+    if(s>bestSetupScore){ bestSetupScore=s; bestSetup=r; }
+  });
+
+  function card(icon,type,label,stats,border) {
+    var sh=stats.map(function(s){ return '<span class="insight-stat '+(s.cls||'')+'">'+s.val+'</span>'; }).join('<span style="color:var(--border);margin:0 2px">|</span>');
+    return '<div class="insight-card" style="border-top:3px solid '+(border||'var(--border)')+'"><div class="insight-icon">'+icon+'</div><div class="insight-type">'+type+'</div><div class="insight-label">'+label+'</div><div class="insight-stats">'+sh+'</div></div>';
+  }
+
+  var cards = [];
+  cards.push(best ? card('&#128142;','Biggest Edge',best.label,[{val:best.winrate.toFixed(0)+'% WR',cls:'pos'},{val:best.avgr.toFixed(2)+'R avg',cls:'pos'}],'var(--green)')
+    : card('&#128142;','Biggest Edge','Not enough data',[{val:'Need 2+ trades per group',cls:'neutral'}],'var(--border)'));
+  cards.push(worst ? card('&#9888;','Biggest Leak',worst.label,[{val:worst.winrate.toFixed(0)+'% WR',cls:'neg'},{val:'$'+worst.pnl.toFixed(0)+' PnL',cls:'neg'}],'var(--red)')
+    : card('&#9888;','Biggest Leak','Not enough data',[{val:'Need 2+ loss groups',cls:'neutral'}],'var(--border)'));
+  cards.push(bestSession ? card('&#128293;','Best Session',bestSession.label,[{val:bestSession.winrate.toFixed(0)+'% WR',cls:'pos'},{val:bestSession.trades+' trades',cls:'neutral'}],'var(--amber)')
+    : card('&#128293;','Best Session','Not enough data',[{val:'Need 2+ trades per session',cls:'neutral'}],'var(--border)'));
+  cards.push(bestSetup ? card('&#127919;','Best Setup',bestSetup.label,[{val:bestSetup.winrate.toFixed(0)+'% WR',cls:'pos'},{val:bestSetup.avgr.toFixed(2)+'R avg',cls:'pos'}],'var(--accent)')
+    : card('&#127919;','Best Setup','No tags yet',[{val:'Tag trades to see best setup',cls:'neutral'}],'var(--border)'));
+
+  el.innerHTML = '<div style="margin-bottom:14px"><div class="insights-row">'+cards.join('')+'</div></div>';
 }
 
 function renderReportEquity(trades) {
@@ -2634,61 +2742,101 @@ function renderReportSummary(trades) {
 function buildWidget(w, trades) {
   const rows = getWidgetRows(w.analyzeBy, trades);
   const cols = w.cols || ['trades','winrate','avgr','totalr','expectancy'];
-
   const colHeaders = {
-    trades: 'Trades', winrate: 'Win %', avgr: 'Avg R',
-    totalr: 'Total R', expectancy: 'Expectancy',
-    pnl: 'Net P&L', pf: 'Profit Factor'
+    trades:'Trades', winrate:'Win %', avgr:'Avg R',
+    totalr:'Total R', expectancy:'Expectancy',
+    pnl:'Net P&L', pf:'Profit Factor'
+  };
+  const tooltips = {
+    winrate:'% of decisive trades (win/loss) that were wins. Excludes breakeven.',
+    avgr:'Average R:R on winning trades. Higher = better reward relative to risk.',
+    totalr:'Sum of all R values across filtered trades.',
+    expectancy:'Expected $ return per trade: (WR x AvgWin) - (LR x AvgLoss).',
+    pf:'Gross profits divided by gross losses. Above 1.0 = profitable system.'
   };
 
-  const thead = `<tr>
-    <th>${getAnalyzeByLabel(w.analyzeBy)}</th>
-    ${cols.map(c => `<th>${colHeaders[c]||c}</th>`).join('')}
-  </tr>`;
+  // Compute summary stats for header
+  const decided = trades.filter(function(t){ return t.outcome==='win'||t.outcome==='loss'; });
+  const wins = decided.filter(function(t){ return t.outcome==='win'; });
+  const wr = decided.length ? (wins.length/decided.length*100).toFixed(0)+'%' : '--';
 
-  let tbody = '';
+  // Find best row by expectancy or winrate
+  const maxRow = rows.reduce(function(best,r){ return (!best||r.expectancy>best.expectancy)?r:best; }, null);
+  const maxTrades = rows.reduce(function(m,r){ return Math.max(m,r.trades); }, 1);
+
+  const thead = '<tr><th>'+getAnalyzeByLabel(w.analyzeBy)+'</th>'+
+    cols.map(function(c){
+      var tip = tooltips[c] ? '<span class="rw-tooltip"> <small style="color:var(--muted);cursor:help">?<span class="rw-tip">'+tooltips[c]+'</span></small></span>' : '';
+      return '<th>'+(colHeaders[c]||c)+tip+'</th>';
+    }).join('')+'</tr>';
+
+  var tbody = '';
   if (!rows.length) {
-    tbody = `<tr><td colspan="${cols.length+1}" class="rw-empty">No data yet — log trades to see patterns</td></tr>`;
+    tbody = '<tr><td colspan="'+(cols.length+1)+'" class="rw-empty">No data -- log trades to see patterns</td></tr>';
   } else {
-    const maxTrades = Math.max(...rows.map(r=>r.trades), 1);
-    tbody = rows.map(r => {
-      const cells = cols.map(c => {
-        if (c === 'trades') {
-          const pct = (r.trades / maxTrades * 100).toFixed(0);
-          return `<td><div class="rw-bar-wrap">
-            <span>${r.trades}</span>
-            <div class="rw-bar-track"><div class="rw-bar-fill" style="width:${pct}%"></div></div>
-          </div></td>`;
+    tbody = rows.map(function(r) {
+      var isBest = maxRow && r.label===maxRow.label && rows.length>1;
+      var rowCls = isBest ? 'rw-clickable-row rw-best-row' : 'rw-clickable-row';
+      var cells = cols.map(function(c) {
+        if (c==='trades') {
+          var pct = (r.trades/maxTrades*100).toFixed(0);
+          return '<td><div style="display:flex;align-items:center;gap:6px"><span>'+r.trades+'</span>'+
+            '<div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;min-width:30px;overflow:hidden">'+
+            '<div style="height:100%;width:'+pct+'%;background:var(--accent);border-radius:2px"></div></div></div></td>';
         }
-        if (c === 'winrate') {
-          const wr = r.winrate;
-          const cls = wr >= 55 ? 'pos' : wr < 40 ? 'neg' : '';
-          return `<td><div class="rw-bar-wrap">
-            <span style="color:${wr>=55?'var(--green)':wr<40?'var(--red)':'var(--text)'}">${wr.toFixed(1)}%</span>
-            <div class="rw-bar-track"><div class="rw-bar-fill ${cls}" style="width:${wr}%"></div></div>
-          </div></td>`;
+        if (c==='winrate') {
+          var wr = r.winrate, cls = wr>=55?'pos':wr<40?'neg':'';
+          var col = wr>=55?'var(--green)':wr<40?'var(--red)':'var(--text)';
+          return '<td><div style="display:flex;align-items:center;gap:6px">'+
+            '<span style="color:'+col+';font-weight:600">'+wr.toFixed(1)+'%</span>'+
+            '<div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;min-width:30px;overflow:hidden">'+
+            '<div style="height:100%;width:'+wr+'%;background:'+(cls==='pos'?'var(--green)':cls==='neg'?'var(--red)':'var(--accent)')+'"></div></div></div></td>';
         }
-        if (c === 'avgr') return `<td style="color:${r.avgr>=1?'var(--green)':r.avgr<0?'var(--red)':'var(--text)'}">${r.avgr.toFixed(2)}R</td>`;
-        if (c === 'totalr') return `<td style="color:${r.totalr>=0?'var(--green)':'var(--red)'}">${r.totalr>=0?'+':''}${r.totalr.toFixed(2)}R</td>`;
-        if (c === 'expectancy') return `<td style="color:${r.expectancy>=0?'var(--green)':'var(--red)'}">${r.expectancy>=0?'+':''}${r.expectancy.toFixed(2)}</td>`;
-        if (c === 'pnl') return `<td style="color:${r.pnl>=0?'var(--green)':'var(--red)'}">${r.pnl>=0?'+':''}$${Math.abs(r.pnl).toFixed(0)}</td>`;
-        if (c === 'pf') return `<td>${r.pf!=null?r.pf.toFixed(2):'--'}</td>`;
-        return '<td>—</td>';
+        if (c==='avgr') return '<td style="color:'+(r.avgr>=1?'var(--green)':r.avgr<0?'var(--red)':'var(--text)')+'">'+r.avgr.toFixed(2)+'R</td>';
+        if (c==='totalr') return '<td style="color:'+(r.totalr>=0?'var(--green)':'var(--red)')+'">'+( r.totalr>=0?'+':'')+r.totalr.toFixed(2)+'R</td>';
+        if (c==='expectancy') return '<td style="color:'+(r.expectancy>=0?'var(--green)':'var(--red)')+'">'+( r.expectancy>=0?'+':'')+r.expectancy.toFixed(2)+'</td>';
+        if (c==='pnl') return '<td style="color:'+(r.pnl>=0?'var(--green)':'var(--red)')+'">'+( r.pnl>=0?'+':'')+'$'+Math.abs(r.pnl).toFixed(0)+'</td>';
+        if (c==='pf') return '<td>'+(r.pf!=null?r.pf.toFixed(2):'--')+'</td>';
+        return '<td>--</td>';
       }).join('');
-      return `<tr><td style="font-weight:600">${r.label}</td>${cells}</tr>`;
+      var clickDim = w.analyzeBy;
+      var clickLabel = r.label;
+      return '<tr class="'+rowCls+'" onclick="filterToRow(this.dataset.dim,this.dataset.label)" data-dim="'+clickDim+'" data-label="'+clickLabel+'">'+
+        '<td style="font-weight:600">'+(isBest?'&#11088; ':'')+r.label+'</td>'+cells+'</tr>';
     }).join('');
   }
 
-  return `<div class="report-widget" id="widget-${w.id}">
-    <div class="rw-header">
-      <div class="rw-title">📊 ${w.title}</div>
-      <button class="rw-remove" onclick="removeWidget('${w.id}')" title="Remove widget">×</button>
-    </div>
-    <table class="rw-table">
-      <thead>${thead}</thead>
-      <tbody>${tbody}</tbody>
-    </table>
-  </div>`;
+  // Header sub-stats
+  var subStats = rows.length + ' groups';
+
+  return '<div class="report-widget" id="widget-'+w.id+'">'+
+    '<div class="rw-header">'+
+    '<div><div class="rw-title">'+w.title+'</div><div class="rw-header-sub">'+subStats+'</div></div>'+
+    '<button class="rw-remove" data-wid="'+w.id+'" onclick="removeWidget(this.dataset.wid)" title="Remove widget">x</button>'+
+    '</div>'+
+    '<table class="rw-table"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table>'+
+    '</div>';
+}
+
+function filterToRow(dim, label) {
+  go('trades');
+  setTimeout(function() {
+    var outcomeEl = document.getElementById('tf-outcome');
+    var searchEl  = document.getElementById('tf-search');
+    var sideEl    = document.getElementById('tf-side');
+    if (outcomeEl) outcomeEl.value = '';
+    if (searchEl)  searchEl.value  = '';
+    if (sideEl)    sideEl.value    = '';
+    if (dim==='outcome' && outcomeEl) {
+      var map = {'Win':'win','Loss':'loss','Breakeven':'be'};
+      outcomeEl.value = map[label]||label.toLowerCase();
+    } else if (dim==='symbol' && searchEl) {
+      searchEl.value = label;
+    } else if (dim==='side' && sideEl) {
+      sideEl.value = label.toLowerCase();
+    }
+    renderTrades();
+  }, 150);
 }
 
 function getAnalyzeByLabel(key) {
