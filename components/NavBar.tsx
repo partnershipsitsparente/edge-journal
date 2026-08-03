@@ -15,6 +15,11 @@ const NAV = [
   { href: '/progress',   label: 'Progress Tracker',  icon: '◔' },
 ]
 
+// Global modal state - simple approach using a custom event
+export function openGlobalTradeModal() {
+  window.dispatchEvent(new CustomEvent('open-trade-modal'))
+}
+
 export default function NavBar() {
   const path = usePathname()
   const userId = useStore(s => s.userId)
@@ -39,15 +44,22 @@ export default function NavBar() {
         EDGE<span style={{ color: 'var(--accent)' }}>.</span>
       </div>
 
-      <Link href="/trades" style={{
-        margin: '12px 14px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        background: 'var(--accent)', color: '#fff', borderRadius: 10,
-        padding: '11px 16px', fontSize: 13, fontWeight: 600,
-        textDecoration: 'none', transition: 'opacity .15s',
-      }}>
+      <button
+        onClick={openGlobalTradeModal}
+        style={{
+          margin: '12px 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          background: 'var(--accent)', color: '#fff', borderRadius: 10,
+          padding: '11px 16px', fontSize: 13, fontWeight: 600,
+          border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          transition: 'opacity .15s, transform .15s',
+          animation: 'pulse-btn 2.5s infinite',
+        }}
+        onMouseOver={e => { (e.currentTarget as HTMLElement).style.opacity = '.85'; (e.currentTarget as HTMLElement).style.animation = 'none' }}
+        onMouseOut={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.animation = 'pulse-btn 2.5s infinite' }}
+      >
         + Add Trade
-      </Link>
+      </button>
 
       <nav style={{ flex: 1 }}>
         {NAV.map(item => {

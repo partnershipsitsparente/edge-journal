@@ -1,18 +1,27 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import NavBar from './NavBar'
+import TradeModal from './TradeModal'
 
 export default function AppFrame({ children }: { children: React.ReactNode }) {
   const { userId, loaded } = useStore()
   const router = useRouter()
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     if (loaded && !userId) {
       router.push('/')
     }
   }, [userId, loaded, router])
+
+  // Listen for global open-trade-modal event from NavBar
+  useEffect(() => {
+    const handler = () => setShowModal(true)
+    window.addEventListener('open-trade-modal', handler)
+    return () => window.removeEventListener('open-trade-modal', handler)
+  }, [])
 
   if (!loaded) {
     return (
@@ -34,6 +43,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
         flex: 1, height: '100vh', overflowY: 'auto', overflowX: 'hidden',
         background: 'var(--bg)', padding: '28px 32px'
       }}>
+        {showModal && <TradeModal onClose={() => setShowModal(false)} />}
         {children}
       </main>
     </div>
