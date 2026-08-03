@@ -1,4 +1,4 @@
-export type TradeOutcome = 'win' | 'loss' | 'be' | 'be_win' | 'be_loss'
+export type TradeOutcome = 'win' | 'loss' | 'be_win' | 'be_loss'
 
 export interface Trade {
   id: string
@@ -8,7 +8,8 @@ export interface Trade {
   side: 'long' | 'short'
   outcome: TradeOutcome
   pnl: number
-  rr?: number | null
+  rr?: number | null          // actual RR (0 for BE trades, used in win rate calc)
+  potentialRR?: number | null  // what the trade would have been worth (for BE impact)
   notes?: string
   tags?: string[]
   mistakes?: string[]

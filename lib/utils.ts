@@ -1,12 +1,11 @@
 import { Trade, TradeOutcome } from './types'
 
-// BE trades (be, be_win, be_loss) are excluded from win rate and RR calculations
 export function isDecisive(t: Trade) {
   return t.outcome === 'win' || t.outcome === 'loss'
 }
 
 export function isBE(t: Trade) {
-  return t.outcome === 'be' || t.outcome === 'be_win' || t.outcome === 'be_loss'
+  return t.outcome === 'be_win' || t.outcome === 'be_loss'
 }
 
 export function calcPnl(trades: Trade[]) {
@@ -39,10 +38,24 @@ export function getProfitFactor(trades: Trade[]) {
   return grossL > 0 ? grossW / grossL : null
 }
 
-// RR only counts decisive trades, BE trades get 0R
 export function getAvgRR(trades: Trade[]) {
   const decided = getDecided(trades).filter(t => t.rr != null)
   return decided.length ? decided.reduce((s, t) => s + (t.rr || 0), 0) / decided.length : null
+}
+
+// BE Impact: positive = RR saved, negative = RR missed
+export function getBEImpact(trades: Trade[]) {
+  const beTrades = trades.filter(isBE)
+  let rrSaved = 0    // be_loss trades saved this much RR (would have lost)
+  let rrMissed = 0   // be_win trades missed this much RR (would have won)
+
+  beTrades.forEach(t => {
+    const potential = t.potentialRR || 0
+    if (t.outcome === 'be_loss') rrSaved += potential   // avoided losing X R
+    if (t.outcome === 'be_win') rrMissed += potential   // missed gaining X R
+  })
+
+  return { rrSaved, rrMissed, net: rrSaved - rrMissed, count: beTrades.length, beTrades }
 }
 
 export function periodFilter(trades: Trade[], period: string) {
@@ -75,11 +88,7 @@ export function fmtDate(date: string) {
 
 export function outcomeLabel(outcome: TradeOutcome): string {
   const map: Record<TradeOutcome, string> = {
-    win: 'Win',
-    loss: 'Loss',
-    be: 'BE',
-    be_win: 'BE → Win',
-    be_loss: 'BE → Loss',
+    win: 'Win', loss: 'Loss', be_win: 'BE \u2192 Win', be_loss: 'BE \u2192 Loss',
   }
   return map[outcome] || outcome
 }
@@ -87,5 +96,7 @@ export function outcomeLabel(outcome: TradeOutcome): string {
 export function outcomePillClass(outcome: TradeOutcome): string {
   if (outcome === 'win') return 'win'
   if (outcome === 'loss') return 'loss'
+  if (outcome === 'be_win') return 'be_win'
+  if (outcome === 'be_loss') return 'be_loss'
   return 'be'
 }

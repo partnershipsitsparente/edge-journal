@@ -107,8 +107,8 @@ input, select, textarea, button {
 .pill.win { background: rgba(0,208,132,.15); color: var(--green); }
 .pill.loss { background: rgba(255,77,77,.15); color: var(--red); }
 .pill.be { background: rgba(155,127,255,.15); color: var(--accent); }
-.pill.be_win { background: rgba(0,208,132,.08); color: #7ec8a4; border: 1px solid rgba(0,208,132,.2); }
-.pill.be_loss { background: rgba(255,77,77,.08); color: #c88a7e; border: 1px solid rgba(255,77,77,.2); }
+.pill.be_win { background: rgba(0,208,132,.1); color: #7ec8a4; border: 1px solid rgba(0,208,132,.2); }
+.pill.be_loss { background: rgba(255,77,77,.1); color: #c88a7e; border: 1px solid rgba(255,77,77,.2); }
 .pill.long { background: rgba(0,208,132,.1); color: var(--green); }
 .pill.short { background: rgba(255,77,77,.1); color: var(--red); }
 

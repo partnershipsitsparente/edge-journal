@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import AppFrame from '@/components/AppFrame'
 import { useStore } from '@/lib/store'
-import { periodFilter, calcPnl, getWins, getLosses, getDecided, getWinRate, getProfitFactor, getAvgRR } from '@/lib/utils'
+import { periodFilter, calcPnl, getWins, getLosses, getDecided, getWinRate, getProfitFactor, getAvgRR, getBEImpact } from '@/lib/utils'
 import { WidgetConfig, Trade } from '@/lib/types'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
@@ -42,7 +42,7 @@ function getWidgetRows(analyzeBy: string, trades: Trade[]) {
         keys = [mins < 570 ? 'Pre-Market' : mins < 660 ? 'NY AM (9:30-11)' : mins < 720 ? 'Mid-Day' : 'Afternoon']
       }
     } else if (analyzeBy === 'outcome') {
-      const outcomeMap: Record<string, string> = { win: 'Win', loss: 'Loss', be: 'Breakeven', be_win: 'BE → Win', be_loss: 'BE → Loss' }
+      const outcomeMap: Record<string, string> = { win: 'Win', loss: 'Loss', be_win: 'BE → Win', be_loss: 'BE → Loss' }
       keys = [outcomeMap[t.outcome] || t.outcome]
     } else if (analyzeBy === 'symbol') { keys = [t.ticker || 'Unknown']
     } else if (analyzeBy === 'side') { keys = [t.side ? t.side.charAt(0).toUpperCase() + t.side.slice(1) : 'Unknown']
@@ -237,6 +237,55 @@ export default function ReportsPage() {
             ))}
           </div>
         </div>
+
+        {/* BE IMPACT */}
+        {(() => {
+          const bei = getBEImpact(filtered)
+          if (!bei.count) return null
+          const netPositive = bei.net >= 0
+          return (
+            <div className="card" style={{ marginBottom: 14, borderLeft: `3px solid ${netPositive ? 'var(--green)' : 'var(--red)'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>BE Impact Analysis</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                    {bei.count} BE trade{bei.count !== 1 ? 's' : ''} — excluded from Win Rate and R:R averages
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Net BE Impact</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--mono)', color: netPositive ? 'var(--green)' : 'var(--red)' }}>
+                    {netPositive ? '+' : ''}{bei.net.toFixed(2)}R
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{netPositive ? 'BE is saving you money' : 'BE is costing you money'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ background: 'rgba(0,208,132,0.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(0,208,132,0.15)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>RR SAVED (BE → Loss)</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--green)' }}>+{bei.rrSaved.toFixed(2)}R</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Would have been losses</div>
+                </div>
+                <div style={{ background: 'rgba(255,77,77,0.08)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,77,77,0.15)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>RR MISSED (BE → Win)</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--red)' }}>-{bei.rrMissed.toFixed(2)}R</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Would have been wins</div>
+                </div>
+                <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>BREAKDOWN</div>
+                  {bei.beTrades.map(t => (
+                    <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4, color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--muted)' }}>{t.date?.slice(5)} {t.ticker}</span>
+                      <span style={{ fontFamily: 'var(--mono)', color: t.outcome === 'be_loss' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                        {t.outcome === 'be_loss' ? '+' : '-'}{(t.potentialRR || 0).toFixed(2)}R
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* WIDGETS */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14 }}>
