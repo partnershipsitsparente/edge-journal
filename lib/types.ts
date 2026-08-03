@@ -1,10 +1,12 @@
+export type TradeOutcome = 'win' | 'loss' | 'be' | 'be_win' | 'be_loss'
+
 export interface Trade {
   id: string
   ticker: string
   date: string
   datetime?: string
   side: 'long' | 'short'
-  outcome: 'win' | 'loss' | 'be'
+  outcome: TradeOutcome
   pnl: number
   rr?: number | null
   notes?: string
