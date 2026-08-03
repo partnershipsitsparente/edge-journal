@@ -42,7 +42,8 @@ function getWidgetRows(analyzeBy: string, trades: Trade[]) {
         keys = [mins < 570 ? 'Pre-Market' : mins < 660 ? 'NY AM (9:30-11)' : mins < 720 ? 'Mid-Day' : 'Afternoon']
       }
     } else if (analyzeBy === 'outcome') {
-      keys = [{ win: 'Win', loss: 'Loss', be: 'Breakeven' }[t.outcome] || t.outcome]
+      const outcomeMap: Record<string, string> = { win: 'Win', loss: 'Loss', be: 'Breakeven', be_win: 'BE → Win', be_loss: 'BE → Loss' }
+      keys = [outcomeMap[t.outcome] || t.outcome]
     } else if (analyzeBy === 'symbol') { keys = [t.ticker || 'Unknown']
     } else if (analyzeBy === 'side') { keys = [t.side ? t.side.charAt(0).toUpperCase() + t.side.slice(1) : 'Unknown']
     } else if (analyzeBy === 'tags') { keys = (t.tags || []).length ? t.tags! : ['Untagged']
