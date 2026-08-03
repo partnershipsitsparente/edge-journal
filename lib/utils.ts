@@ -100,3 +100,53 @@ export function outcomePillClass(outcome: TradeOutcome): string {
   if (outcome === 'be_loss') return 'be_loss'
   return 'be'
 }
+
+// Streaks
+export function getStreaks(trades: Trade[]) {
+  const sorted = [...trades]
+    .filter(t => isDecisive(t))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+
+  let currentWin = 0, currentLoss = 0, bestWin = 0, bestLoss = 0
+  let streak = 0
+
+  sorted.forEach(t => {
+    if (t.outcome === 'win') {
+      currentWin++; currentLoss = 0
+      if (currentWin > bestWin) bestWin = currentWin
+    } else {
+      currentLoss++; currentWin = 0
+      if (currentLoss > bestLoss) bestLoss = currentLoss
+    }
+  })
+
+  // Current streak (from most recent)
+  let curStreak = 0, curType: 'win' | 'loss' | null = null
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const t = sorted[i]
+    if (curType === null) curType = t.outcome as 'win' | 'loss'
+    if (t.outcome === curType) curStreak++
+    else break
+  }
+
+  return { currentWin, currentLoss, bestWin, bestLoss, curStreak, curType }
+}
+
+// Trading days
+export function getTradingDays(trades: Trade[]) {
+  return new Set(trades.map(t => (t.date || '').slice(0, 10)).filter(Boolean)).size
+}
+
+// Avg hold time in minutes
+export function getAvgHoldMins(trades: Trade[]) {
+  const withHold = trades.filter(t => t.holdMins != null && t.holdMins > 0)
+  if (!withHold.length) return null
+  return withHold.reduce((s, t) => s + (t.holdMins || 0), 0) / withHold.length
+}
+
+export function formatHoldTime(mins: number) {
+  if (mins < 1) return Math.round(mins * 60) + 's'
+  const m = Math.floor(mins)
+  const s = Math.round((mins - m) * 60)
+  return s > 0 ? `${m}m ${s}s` : `${m}m`
+}

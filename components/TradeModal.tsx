@@ -22,6 +22,7 @@ export default function TradeModal({ onClose }: Props) {
     pnl: '',
     rr: '',
     potentialRR: '',
+    holdMins: '',
     notes: '',
   })
   const [screenshots, setScreenshots] = useState<string[]>([])
@@ -49,6 +50,7 @@ export default function TradeModal({ onClose }: Props) {
       rr: isBE ? 0 : (form.rr ? parseFloat(form.rr) : null),
       potentialRR: isBE ? (parseFloat(form.potentialRR) || 0) : null,
       notes: form.notes,
+      holdMins: form.holdMins ? parseFloat(form.holdMins) : undefined,
       screenshots,
       tags: [],
       mistakes: [],
@@ -132,9 +134,15 @@ export default function TradeModal({ onClose }: Props) {
           </div>
         )}
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={lbl}>Notes</label>
-          <input className="form-input" placeholder="Quick note..." value={form.notes} onChange={e => set('notes', e.target.value)} />
+        <div style={row2}>
+          <div>
+            <label style={lbl}>Notes</label>
+            <input className="form-input" placeholder="Quick note..." value={form.notes} onChange={e => set('notes', e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Hold Time (mins)</label>
+            <input className="form-input" type="number" step="0.5" placeholder="e.g. 6.5" value={form.holdMins} onChange={e => set('holdMins', e.target.value)} />
+          </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>

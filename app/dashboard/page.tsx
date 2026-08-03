@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import AppFrame from '@/components/AppFrame'
 import TradeModal from '@/components/TradeModal'
 import { useStore } from '@/lib/store'
-import { periodFilter, calcPnl, getWins, getLosses, getDecided, getWinRate, getProfitFactor, formatPnl } from '@/lib/utils'
+import { periodFilter, calcPnl, getWins, getLosses, getDecided, getWinRate, getProfitFactor, formatPnl, getStreaks, getTradingDays, getAvgHoldMins, formatHoldTime } from '@/lib/utils'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
 
@@ -88,6 +88,21 @@ export default function DashboardPage() {
     setCalMonth(m); setCalYear(y)
   }
 
+  const streaks = getStreaks(filtered)
+  const tradingDays = getTradingDays(filtered)
+  const avgHoldMins = getAvgHoldMins(filtered)
+
+  // Monthly stats for goal progress
+  const now2 = new Date()
+  const monthPrefix = now2.getFullYear() + '-' + String(now2.getMonth() + 1).padStart(2, '0')
+  const monthTrades = trades.filter(t => (t.date || '').startsWith(monthPrefix))
+  const monthDays = new Set(monthTrades.map(t => (t.date || '').slice(0, 10))).size
+  const monthWinDays = (() => {
+    const byDay: Record<string, number> = {}
+    monthTrades.forEach(t => { const d = (t.date || '').slice(0,10); byDay[d] = (byDay[d]||0) + (t.pnl||0) })
+    return Object.values(byDay).filter(p => p > 0).length
+  })()
+
   const recentTrades = [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8)
 
   return (
@@ -113,11 +128,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* STAT CARDS */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
+        {/* STAT CARDS ROW 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 12 }}>
           {[
-            { label: 'Net P&L', val: formatPnl(totalPnl), cls: totalPnl > 0 ? 'pos' : totalPnl < 0 ? 'neg' : '', sub: `${filtered.length} trades` },
-            { label: 'Win Rate', val: wr.toFixed(1) + '%', cls: wr >= 55 ? 'pos' : wr < 40 ? 'neg' : '', sub: `${wins.length}W / ${losses.length}L` },
+            { label: 'Net P&L', val: formatPnl(totalPnl), cls: totalPnl > 0 ? 'pos' : totalPnl < 0 ? 'neg' : '', sub: filtered.length + ' trades' },
+            { label: 'Win Rate', val: wr.toFixed(1) + '%', cls: wr >= 55 ? 'pos' : wr < 40 ? 'neg' : '', sub: wins.length + 'W / ' + losses.length + 'L (excl. BE)' },
             { label: 'Profit Factor', val: pf != null ? pf.toFixed(2) : '--', cls: pf != null ? (pf >= 1.5 ? 'pos' : pf < 1 ? 'neg' : '') : '', sub: 'gross P / gross L' },
             { label: 'Expectancy', val: exp != null ? formatPnl(exp) : '--', cls: exp != null ? (exp >= 0 ? 'pos' : 'neg') : '', sub: 'per trade' },
             { label: 'Avg Win / Loss', val: avgWin != null ? '+$' + avgWin.toFixed(0) : '--', cls: 'pos', sub: avgLoss != null ? 'avg loss $' + avgLoss.toFixed(0) : 'avg loss --' },
@@ -128,6 +143,70 @@ export default function DashboardPage() {
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{s.sub}</div>
             </div>
           ))}
+        </div>
+
+        {/* STAT CARDS ROW 2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
+          {/* Current Streak */}
+          <div className="stat-card">
+            <div className="stat-label">Current Streak</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4 }}>
+              <span style={{ fontSize: 28 }}>{streaks.curType === 'win' ? '🔥' : streaks.curType === 'loss' ? '❌' : '--'}</span>
+              {streaks.curStreak > 0 && <span className={`stat-val ${streaks.curType === 'win' ? 'pos' : 'neg'}`} style={{ fontSize: 22 }}>{streaks.curStreak}</span>}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              {streaks.curType === 'win' ? 'win streak' : streaks.curType === 'loss' ? 'loss streak' : 'no trades'}
+              {streaks.bestWin > 0 && <span style={{ marginLeft: 6 }}>· best {streaks.bestWin}W</span>}
+            </div>
+          </div>
+
+          {/* Trading Days */}
+          <div className="stat-card">
+            <div className="stat-label">Trading Days</div>
+            <div className="stat-val" style={{ fontSize: 22, marginTop: 4 }}>{tradingDays}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              This month: {monthWinDays}W / {monthDays - monthWinDays}L days
+            </div>
+          </div>
+
+          {/* Monthly Winning Days */}
+          <div className="stat-card">
+            <div className="stat-label">Monthly Win Days</div>
+            <div style={{ marginTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span className="stat-val pos" style={{ fontSize: 20 }}>{monthWinDays}</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)', alignSelf: 'flex-end' }}>/ {monthDays} days</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--bg4)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: monthDays ? (monthWinDays / monthDays * 100) + '%' : '0%', background: 'var(--green)', borderRadius: 3, transition: 'width .4s' }} />
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              {monthDays ? Math.round(monthWinDays / monthDays * 100) : 0}% green days this month
+            </div>
+          </div>
+
+          {/* Best Streak */}
+          <div className="stat-card">
+            <div className="stat-label">Best Win Streak</div>
+            <div className="stat-val pos" style={{ fontSize: 22, marginTop: 4 }}>
+              {streaks.bestWin > 0 ? streaks.bestWin + ' wins' : '--'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              worst loss streak: {streaks.bestLoss > 0 ? streaks.bestLoss : '--'}
+            </div>
+          </div>
+
+          {/* Avg Hold Time */}
+          <div className="stat-card">
+            <div className="stat-label">Avg Hold Time</div>
+            <div className="stat-val" style={{ fontSize: 22, marginTop: 4 }}>
+              {avgHoldMins != null ? formatHoldTime(avgHoldMins) : '--'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              {filtered.filter(t => t.holdMins).length} trades with hold data
+            </div>
+          </div>
         </div>
 
         {/* CHARTS */}
