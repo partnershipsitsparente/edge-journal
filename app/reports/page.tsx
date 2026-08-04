@@ -549,13 +549,13 @@ export default function ReportsPage() {
                   <VisualWidget w={w as ExtWidgetConfig} rows={rows}
                     onRemove={()=>removeWidget(w.id)}
                     onResize={s=>updateWidget(w.id,{size:s})}
-                    onStyleToggle={()=>updateWidget(w.id,{style:style==='table'?'visual':'table'})}
+                    onStyleToggle={()=>updateWidget(w.id,{style:(style as string)==='table'?'visual':'table'})}
                   />
                 ) : (
                   <TableWidget w={w as ExtWidgetConfig} rows={rows}
                     onRemove={()=>removeWidget(w.id)}
                     onResize={s=>updateWidget(w.id,{size:s})}
-                    onStyleToggle={()=>updateWidget(w.id,{style:style==='table'?'visual':'table'})}
+                    onStyleToggle={()=>updateWidget(w.id,{style:(style as string)==='table'?'visual':'table'})}
                   />
                 )}
               </div>
