@@ -13,6 +13,7 @@ const NAV = [
   { href: '/reports',    label: 'Reports',           icon: '⊞', badge: 'NEW' },
   { href: '/playbooks',  label: 'Playbooks',         icon: '▶', badge: 'NEW' },
   { href: '/progress',   label: 'Progress Tracker',  icon: '◔' },
+  { href: '/share',      label: 'Share Card',        icon: '↑' },
 ]
 
 // Global modal state - simple approach using a custom event
