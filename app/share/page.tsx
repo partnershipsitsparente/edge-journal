@@ -99,24 +99,22 @@ export default function SharePage() {
     const lineH = (size: number) => size * 1.25
 
     // --- LOGO ---
-    let y = pad
+    const logoSize = Math.round(W * 0.052)
+    let y = pad + logoSize  // y is baseline of logo text
     if (vis.edgeLogo) {
-      const logoSize = Math.round(W * 0.052)
       ctx.font = `800 ${logoSize}px Arial, sans-serif`
       ctx.fillStyle = '#fff'
       const edgeW = ctx.measureText('EDGE').width
-      ctx.fillText('EDGE', pad, y + logoSize)
+      ctx.fillText('EDGE', pad, y)
       ctx.fillStyle = T.accent
-      ctx.fillText('.', pad + edgeW - 2, y + logoSize)
-      y += logoSize + Math.round(W * 0.04)
-    } else {
-      y += pad * 0.3
+      ctx.fillText('.', pad + edgeW - 2, y)
     }
+    // Pass y=0 to drawSummary/drawTrade — they use absolute positioning
 
     if (cardType === 'trade' && selectedTrade) {
-      drawTrade(ctx, W, H, pad, y, T, vis, selectedTrade, bigStat, layout)
+      drawTrade(ctx, W, H, pad, 0, T, vis, selectedTrade, bigStat, layout)
     } else {
-      drawSummary(ctx, W, H, pad, y, T, vis, totalPnl, wr, pf, avgRR, wins.length, losses.length, filtered.length, period, layout)
+      drawSummary(ctx, W, H, pad, 0, T, vis, totalPnl, wr, pf, avgRR, wins.length, losses.length, filtered.length, period, layout)
     }
 
     // Watermark - always shown, no toggle
@@ -135,33 +133,38 @@ export default function SharePage() {
     T: typeof THEMES.dark, vis: Vis, pnl: number, wr: number, pf: number|null,
     avgRR: number|null, winsC: number, lossesC: number, total: number, period: string, layout: Layout
   ) {
-    let y = startY
+    const isLandscape = layout === 'landscape'
     const pnlColor = pnl >= 0 ? T.green : T.red
+    const pLabel: Record<string,string> = { today:'TODAY', week:'THIS WEEK', month:'THIS MONTH', all:'ALL TIME' }
+
+    // Fixed positions — calculated from top of canvas, not cumulative
+    // This prevents any overlap regardless of font sizes
+    const logoH = vis.edgeLogo ? Math.round(W * 0.12) : Math.round(W * 0.04)
+    const periodY = logoH + Math.round(H * 0.04)
+    const periodSize = Math.round(W * 0.026)
+    const pnlSize = Math.round(W * (isLandscape ? 0.088 : 0.11))
+    const pnlY = periodY + Math.round(periodSize * 1.4) + Math.round(H * 0.02)
+    const dividerY = pnlY + Math.round(H * 0.04)
+    const statsY = dividerY + Math.round(H * 0.04)
 
     // Period label
-    const pLabel: Record<string,string> = { today:'TODAY', week:'THIS WEEK', month:'THIS MONTH', all:'ALL TIME' }
-    const periodSize = Math.round(W * 0.026)
     ctx.font = `600 ${periodSize}px Arial, sans-serif`
     ctx.fillStyle = T.muted
-    ctx.fillText(pLabel[period] || 'ALL TIME', pad, y)
-    y += Math.round(periodSize * 1.6)
+    ctx.fillText(pLabel[period] || 'ALL TIME', pad, periodY)
 
     // Big P&L
     const pnlStr = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2)
-    const pnlSize = Math.round(W * (layout === 'landscape' ? 0.09 : 0.115))
     ctx.font = `800 ${pnlSize}px Arial, sans-serif`
     ctx.shadowColor = pnlColor; ctx.shadowBlur = 20
     ctx.fillStyle = pnlColor
-    ctx.fillText(pnlStr, pad, y)
+    ctx.fillText(pnlStr, pad, pnlY)
     ctx.shadowBlur = 0
-    y += Math.round(pnlSize * 1.2)
 
     // Divider
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
-    ctx.fillRect(pad, y, W - pad*2, 1)
-    y += Math.round(W * 0.042)
+    ctx.fillRect(pad, dividerY, W - pad*2, 1)
 
-    // Stat grid
+    // Stat grid — fixed cell size based on remaining space
     type StatItem = { label: string; value: string; color?: string }
     const stats: StatItem[] = []
     if (vis.winRate) stats.push({ label: 'WIN RATE', value: wr.toFixed(1) + '%', color: wr >= 55 ? T.green : wr < 40 ? T.red : T.text })
@@ -169,128 +172,123 @@ export default function SharePage() {
     if (vis.profitFactor) stats.push({ label: 'PROFIT FACTOR', value: pf != null ? pf.toFixed(2) : '--' })
     if (vis.rMultiple) stats.push({ label: 'AVG R:R', value: avgRR != null ? avgRR.toFixed(2) + 'R' : '--' })
 
-    const cols = layout === 'landscape' ? Math.min(stats.length, 4) : 2
+    const cols = isLandscape ? Math.min(stats.length, 4) : 2
+    const rows = Math.ceil(stats.length / cols)
+    const availH = H - statsY - Math.round(H * 0.1) // leave room for watermark
+    const cellH = Math.min(Math.round(availH / rows), Math.round(H * 0.2))
     const cellW = Math.floor((W - pad * 2) / cols)
-    const cellH = Math.round(W * 0.115)
-    const labelSize = Math.round(W * 0.022)
-    const valSize = Math.round(W * 0.046)
+    const gap = 6
+    const labelSize = Math.round(cellH * 0.2)
+    const valSize = Math.round(cellH * 0.38)
 
     stats.forEach((s, i) => {
       const col = i % cols
       const row = Math.floor(i / cols)
       const cx = pad + col * cellW
-      const cy = y + row * (cellH + Math.round(W * 0.012))
+      const cy = statsY + row * (cellH + gap)
 
-      // Cell bg
       ctx.fillStyle = 'rgba(255,255,255,0.04)'
-      roundRect(ctx, cx + 3, cy, cellW - 6, cellH, 8)
+      roundRect(ctx, cx + 3, cy, cellW - 6, cellH - gap, 8)
       ctx.fill()
 
-      // Label
+      // Label at top of cell
       ctx.font = `600 ${labelSize}px Arial, sans-serif`
       ctx.fillStyle = T.muted
-      ctx.fillText(s.label, cx + 10, cy + Math.round(labelSize * 1.6))
+      ctx.fillText(s.label, cx + 10, cy + labelSize + 6)
 
-      // Value
+      // Value below label
       ctx.font = `700 ${valSize}px Arial, sans-serif`
       ctx.fillStyle = s.color || T.text
-      ctx.fillText(s.value, cx + 10, cy + labelSize * 1.6 + Math.round(valSize * 1.2))
+      ctx.fillText(s.value, cx + 10, cy + labelSize + 10 + valSize)
     })
   }
 
   function drawTrade(
-    ctx: CanvasRenderingContext2D, W: number, H: number, pad: number, startY: number,
+    ctx: CanvasRenderingContext2D, W: number, H: number, pad: number, _startY: number,
     T: typeof THEMES.dark, vis: Vis, trade: NonNullable<typeof selectedTrade>,
     bigStat: BigStat, layout: Layout
   ) {
-    let y = startY
     const pnl = trade.pnl || 0
     const pnlColor = pnl >= 0 ? T.green : T.red
     const rrColor = (trade.rr || 0) >= 1 ? T.green : T.red
+    const isLandscape = layout === 'landscape'
 
-    // Symbol + side
+    // Absolute positions from top
+    const logoH = vis.edgeLogo ? Math.round(W * 0.12) : Math.round(W * 0.04)
+    const symSize = Math.round(W * 0.068)
+    const symY = logoH + Math.round(H * 0.04) + symSize
+    const bigSize = Math.round(W * (isLandscape ? 0.088 : 0.105))
+    const bigY = symY + Math.round(H * 0.06) + bigSize
+    const smallSize = Math.round(W * 0.036)
+    const smallY = bigY + Math.round(smallSize * 1.5)
+    const dividerY = smallY + Math.round(H * 0.03)
+    const contentY = dividerY + Math.round(H * 0.035)
+
+    // Symbol + side badge
     if (vis.symbol) {
-      const symSize = Math.round(W * 0.072)
       ctx.font = `800 ${symSize}px Arial, sans-serif`
       ctx.fillStyle = T.text
       const symW = ctx.measureText(trade.ticker || 'MNQ').width
-      ctx.fillText(trade.ticker || 'MNQ', pad, y)
-
-      // Side badge next to ticker
+      ctx.fillText(trade.ticker || 'MNQ', pad, symY)
+      // Side badge
       const badgeX = pad + symW + 10
-      const badgeW = 58, badgeH = 24
-      const badgeY = y - symSize + 2
+      const badgeH2 = Math.round(symSize * 0.45)
+      const badgeW2 = Math.round(badgeH2 * 2.6)
+      const badgeY2 = symY - symSize + Math.round(symSize * 0.6)
       ctx.fillStyle = trade.side === 'long' ? 'rgba(0,208,132,0.2)' : 'rgba(255,77,77,0.2)'
-      roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 5); ctx.fill()
-      const sideSize = Math.round(W * 0.025)
+      roundRect(ctx, badgeX, badgeY2, badgeW2, badgeH2, 5); ctx.fill()
+      const sideSize = Math.round(badgeH2 * 0.55)
       ctx.font = `700 ${sideSize}px Arial, sans-serif`
       ctx.fillStyle = trade.side === 'long' ? T.green : T.red
-      ctx.fillText((trade.side || '').toUpperCase(), badgeX + 8, badgeY + sideSize * 1.1)
-      y += Math.round(symSize * 0.3)
+      ctx.fillText((trade.side || '').toUpperCase(), badgeX + 8, badgeY2 + sideSize * 1.1)
     }
 
-    // Big stat - RR or P&L
-    const bigSize = Math.round(W * (layout === 'landscape' ? 0.09 : 0.11))
+    // Big number
     if (bigStat === 'rr' && trade.rr != null) {
       const rrStr = (trade.rr >= 0 ? '+' : '') + trade.rr.toFixed(2) + 'R'
       ctx.font = `800 ${bigSize}px Arial, sans-serif`
       ctx.shadowColor = rrColor; ctx.shadowBlur = 20
-      ctx.fillStyle = rrColor
-      ctx.fillText(rrStr, pad, y)
+      ctx.fillStyle = rrColor; ctx.fillText(rrStr, pad, bigY)
       ctx.shadowBlur = 0
-      // P&L smaller below
-      y += Math.round(bigSize * 1.15)
       const pnlStr = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2)
-      const smallSize = Math.round(W * 0.038)
-      ctx.font = `600 ${smallSize}px Arial, sans-serif`
-      ctx.fillStyle = T.muted
-      ctx.fillText(pnlStr, pad, y)
-      y += Math.round(smallSize * 1.4)
+      ctx.font = `500 ${smallSize}px Arial, sans-serif`
+      ctx.fillStyle = T.muted; ctx.fillText(pnlStr, pad, smallY)
     } else {
       const pnlStr = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2)
       ctx.font = `800 ${bigSize}px Arial, sans-serif`
       ctx.shadowColor = pnlColor; ctx.shadowBlur = 20
-      ctx.fillStyle = pnlColor
-      ctx.fillText(pnlStr, pad, y)
+      ctx.fillStyle = pnlColor; ctx.fillText(pnlStr, pad, bigY)
       ctx.shadowBlur = 0
-      // RR smaller below
-      y += Math.round(bigSize * 1.15)
       if (trade.rr != null) {
-        const rrStr = trade.rr.toFixed(2) + 'R'
-        const smallSize = Math.round(W * 0.038)
-        ctx.font = `600 ${smallSize}px Arial, sans-serif`
+        ctx.font = `500 ${smallSize}px Arial, sans-serif`
         ctx.fillStyle = T.muted
-        ctx.fillText(rrStr, pad, y)
-        y += Math.round(smallSize * 1.4)
+        ctx.fillText(trade.rr.toFixed(2) + 'R', pad, smallY)
       }
     }
 
     // Divider
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
-    ctx.fillRect(pad, y, W - pad*2, 1)
-    y += Math.round(W * 0.03)
+    ctx.fillRect(pad, dividerY, W - pad*2, 1)
 
     // Screenshot
     if (vis.screenshot && trade.screenshots && trade.screenshots.length > 0) {
-      const ssH = Math.round(H * (layout === 'landscape' ? 0.38 : 0.3))
       const ssW = W - pad * 2
+      const ssH = Math.min(Math.round(H * 0.32), H - contentY - Math.round(H * 0.12))
       const img = new window.Image()
       img.onload = () => {
         ctx.save()
-        roundRect(ctx, pad, y, ssW, ssH, 10)
+        roundRect(ctx, pad, contentY, ssW, ssH, 10)
         ctx.clip()
-        // Fit image covering the area
         const scale = Math.max(ssW / img.width, ssH / img.height)
         const dw = img.width * scale, dh = img.height * scale
-        const dx = pad + (ssW - dw) / 2, dy = y + (ssH - dh) / 2
+        const dx = pad + (ssW - dw) / 2, dy = contentY + (ssH - dh) / 2
         ctx.drawImage(img, dx, dy, dw, dh)
         ctx.restore()
-        // Date below screenshot
-        const dateY = y + ssH + Math.round(W * 0.04)
+        const dateY2 = contentY + ssH + Math.round(H * 0.03)
         ctx.font = `400 ${Math.round(W * 0.026)}px Arial, sans-serif`
         ctx.fillStyle = T.muted
-        ctx.fillText(trade.date || '', pad, dateY)
-        // Watermark
+        ctx.fillText(trade.date || '', pad, dateY2)
+        // Re-draw watermark on top
         ctx.font = `400 ${Math.round(W * 0.022)}px Arial, sans-serif`
         ctx.fillStyle = 'rgba(255,255,255,0.18)'
         ctx.textAlign = 'right'
@@ -298,29 +296,28 @@ export default function SharePage() {
         ctx.textAlign = 'left'
       }
       img.src = trade.screenshots[0]
-      return // watermark drawn in img.onload
+      return
     }
 
-    // No screenshot - show date + notes
-    ctx.font = `400 ${Math.round(W * 0.026)}px Arial, sans-serif`
+    // No screenshot
+    ctx.font = `400 ${Math.round(W * 0.028)}px Arial, sans-serif`
     ctx.fillStyle = T.muted
-    ctx.fillText(trade.date || '', pad, y)
-
+    ctx.fillText(trade.date || '', pad, contentY)
     if (vis.notes && trade.notes) {
-      y += Math.round(W * 0.048)
+      let ny = contentY + Math.round(H * 0.055)
       const noteSize = Math.round(W * 0.026)
       ctx.font = `400 ${noteSize}px Arial, sans-serif`
       ctx.fillStyle = T.muted
-      const maxW = W - pad * 2
+      const maxLineW = W - pad * 2
       const words = trade.notes.split(' ')
       let line = ''
       for (const word of words) {
         const test = line + word + ' '
-        if (ctx.measureText(test).width > maxW && line) {
-          ctx.fillText(line.trim(), pad, y); y += Math.round(noteSize * 1.5); line = word + ' '
+        if (ctx.measureText(test).width > maxLineW && line) {
+          ctx.fillText(line.trim(), pad, ny); ny += Math.round(noteSize * 1.5); line = word + ' '
         } else line = test
       }
-      if (line) ctx.fillText(line.trim(), pad, y)
+      if (line) ctx.fillText(line.trim(), pad, ny)
     }
   }
 
