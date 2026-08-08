@@ -137,34 +137,35 @@ export default function SharePage() {
     const pnlColor = pnl >= 0 ? T.green : T.red
     const pLabel: Record<string,string> = { today:'TODAY', week:'THIS WEEK', month:'THIS MONTH', all:'ALL TIME' }
 
-    // Fixed positions — calculated from top of canvas, not cumulative
-    const logoSize = Math.round(W * 0.052)
-    const logoH = vis.edgeLogo ? Math.round(pad + logoSize * 1.1) : pad
-    const periodSize = Math.round(W * 0.026)
-    const periodY = logoH + Math.round(H * 0.06)        // period label below logo with gap
-    const pnlSize = Math.round(W * (isLandscape ? 0.088 : 0.11))
-    const pnlY = periodY + Math.round(periodSize * 1.5) + Math.round(H * 0.04) // P&L below period with gap
-    const dividerY = pnlY + Math.round(H * 0.055)
-    const statsY = dividerY + Math.round(H * 0.04)
+    // Layout-specific sizing constants
+    const logoSize   = Math.round(W * 0.052)
+    const logoBottom = vis.edgeLogo ? (pad + logoSize + Math.round(H * 0.04)) : pad
+    const periodSize = Math.round(W * 0.024)
+    const periodBottom = logoBottom + periodSize + Math.round(H * 0.02)
+    const pnlSize    = Math.round(W * (isLandscape ? 0.082 : 0.1))
+    const pnlBottom  = periodBottom + pnlSize + Math.round(H * 0.03)
+    const dividerY   = pnlBottom + Math.round(H * 0.02)
+    const statsY     = dividerY + Math.round(H * 0.03)
+    const watermarkH = Math.round(H * 0.08)
 
     // Period label
     ctx.font = `600 ${periodSize}px Arial, sans-serif`
     ctx.fillStyle = T.muted
-    ctx.fillText(pLabel[period] || 'ALL TIME', pad, periodY)
+    ctx.fillText(pLabel[period] || 'ALL TIME', pad, periodBottom)
 
     // Big P&L
     const pnlStr = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2)
     ctx.font = `800 ${pnlSize}px Arial, sans-serif`
     ctx.shadowColor = pnlColor; ctx.shadowBlur = 20
     ctx.fillStyle = pnlColor
-    ctx.fillText(pnlStr, pad, pnlY)
+    ctx.fillText(pnlStr, pad, pnlBottom)
     ctx.shadowBlur = 0
 
     // Divider
     ctx.fillStyle = 'rgba(255,255,255,0.08)'
     ctx.fillRect(pad, dividerY, W - pad*2, 1)
 
-    // Stat grid — fixed cell size based on remaining space
+    // Stat grid
     type StatItem = { label: string; value: string; color?: string }
     const stats: StatItem[] = []
     if (vis.winRate) stats.push({ label: 'WIN RATE', value: wr.toFixed(1) + '%', color: wr >= 55 ? T.green : wr < 40 ? T.red : T.text })
@@ -172,34 +173,38 @@ export default function SharePage() {
     if (vis.profitFactor) stats.push({ label: 'PROFIT FACTOR', value: pf != null ? pf.toFixed(2) : '--' })
     if (vis.rMultiple) stats.push({ label: 'AVG R:R', value: avgRR != null ? avgRR.toFixed(2) + 'R' : '--' })
 
-    const cols = isLandscape ? Math.min(stats.length, 4) : 2
-    const rows = Math.ceil(stats.length / cols)
-    const availH = H - statsY - Math.round(H * 0.1) // leave room for watermark
-    const cellH = Math.min(Math.round(availH / rows), Math.round(H * 0.2))
-    const cellW = Math.floor((W - pad * 2) / cols)
-    const gap = 6
-    const labelSize = Math.round(cellH * 0.2)
-    const valSize = Math.round(cellH * 0.38)
+    const cols   = isLandscape ? Math.min(stats.length, 4) : 2
+    const rows   = Math.ceil(stats.length / cols)
+    const availH = H - statsY - watermarkH
+    const gap    = Math.round(W * 0.012)
+    const cellH  = Math.floor((availH - gap * (rows - 1)) / rows)
+    const cellW  = Math.floor((W - pad * 2 - gap * (cols - 1)) / cols)
+
+    // Scale text to fit inside cell — max 38% of cellH for value
+    const labelSize = Math.min(Math.round(cellH * 0.22), Math.round(W * 0.024))
+    const valSize   = Math.min(Math.round(cellH * 0.38), Math.round(W * 0.052))
 
     stats.forEach((s, i) => {
       const col = i % cols
       const row = Math.floor(i / cols)
-      const cx = pad + col * cellW
+      const cx = pad + col * (cellW + gap)
       const cy = statsY + row * (cellH + gap)
 
       ctx.fillStyle = 'rgba(255,255,255,0.04)'
-      roundRect(ctx, cx + 3, cy, cellW - 6, cellH - gap, 8)
+      roundRect(ctx, cx, cy, cellW, cellH, 8)
       ctx.fill()
 
-      // Label at top of cell
       ctx.font = `600 ${labelSize}px Arial, sans-serif`
       ctx.fillStyle = T.muted
       ctx.fillText(s.label, cx + 10, cy + labelSize + 6)
 
-      // Value below label
       ctx.font = `700 ${valSize}px Arial, sans-serif`
       ctx.fillStyle = s.color || T.text
+      // Clip text to cell width
+      ctx.save()
+      ctx.rect(cx, cy, cellW, cellH); ctx.clip()
       ctx.fillText(s.value, cx + 10, cy + labelSize + 10 + valSize)
+      ctx.restore()
     })
   }
 
