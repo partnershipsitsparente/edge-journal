@@ -138,13 +138,13 @@ export default function SharePage() {
     const pLabel: Record<string,string> = { today:'TODAY', week:'THIS WEEK', month:'THIS MONTH', all:'ALL TIME' }
 
     // Fixed positions — calculated from top of canvas, not cumulative
-    // This prevents any overlap regardless of font sizes
-    const logoH = vis.edgeLogo ? Math.round(W * 0.12) : Math.round(W * 0.04)
-    const periodY = logoH + Math.round(H * 0.04)
+    const logoSize = Math.round(W * 0.052)
+    const logoH = vis.edgeLogo ? Math.round(pad + logoSize * 1.1) : pad
     const periodSize = Math.round(W * 0.026)
+    const periodY = logoH + Math.round(H * 0.06)        // period label below logo with gap
     const pnlSize = Math.round(W * (isLandscape ? 0.088 : 0.11))
-    const pnlY = periodY + Math.round(periodSize * 1.4) + Math.round(H * 0.02)
-    const dividerY = pnlY + Math.round(H * 0.04)
+    const pnlY = periodY + Math.round(periodSize * 1.5) + Math.round(H * 0.04) // P&L below period with gap
+    const dividerY = pnlY + Math.round(H * 0.055)
     const statsY = dividerY + Math.round(H * 0.04)
 
     // Period label
