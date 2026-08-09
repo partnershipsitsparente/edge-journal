@@ -75,61 +75,67 @@ export default function SharePage() {
     const W = lyt.w, H = lyt.h
     canvas.width = W; canvas.height = H
 
-    // BG
-    const bg = ctx.createLinearGradient(0, 0, W, H)
-    bg.addColorStop(0, T.bg); bg.addColorStop(1, T.bg2)
+    // === RICH BACKGROUND ===
+    const bg = ctx.createLinearGradient(0, 0, W * 0.5, H)
+    if (theme === 'green') {
+      bg.addColorStop(0, '#0a2a1a'); bg.addColorStop(1, '#040f08')
+    } else if (theme === 'purple') {
+      bg.addColorStop(0, '#1a0a35'); bg.addColorStop(1, '#080318')
+    } else {
+      bg.addColorStop(0, '#0c1526'); bg.addColorStop(1, '#050b14')
+    }
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
 
-    // Grid lines
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1
-    for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke() }
-    for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke() }
+    // Accent glow corner
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, W * 0.8)
+    glow.addColorStop(0, T.accent + '28'); glow.addColorStop(1, 'transparent')
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H)
 
-    // Glow
-    const glow = ctx.createRadialGradient(0,0,0,0,0,W*0.6)
-    glow.addColorStop(0, T.accent+'22'); glow.addColorStop(1,'transparent')
-    ctx.fillStyle = glow; ctx.fillRect(0,0,W,H)
-
-    // Border
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1
-    roundRect(ctx, 1, 1, W-2, H-2, 14); ctx.stroke()
+    // Outer border
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5
+    roundRect(ctx, 1, 1, W - 2, H - 2, 18); ctx.stroke()
 
     const pad = Math.round(W * 0.07)
-    const isLandscape = layout === 'landscape'
-    const lineH = (size: number) => size * 1.25
+    const bottomBarH = Math.round(H * 0.12)
+    const contentH = H - bottomBarH
 
-    // --- LOGO ---
-    const logoSize = Math.round(W * 0.052)
-    let y = pad + logoSize  // y is baseline of logo text
-    if (vis.edgeLogo) {
-      ctx.font = `800 ${logoSize}px Arial, sans-serif`
-      ctx.fillStyle = '#fff'
-      const edgeW = ctx.measureText('EDGE').width
-      ctx.fillText('EDGE', pad, y)
-      ctx.fillStyle = T.accent
-      ctx.fillText('.', pad + edgeW - 2, y)
-    }
-    // Pass y=0 to drawSummary/drawTrade — they use absolute positioning
-
+    // Draw main content
     if (cardType === 'trade' && selectedTrade) {
-      drawTrade(ctx, W, H, pad, 0, T, vis, selectedTrade, bigStat, layout)
+      drawTrade(ctx, W, contentH, pad, T, vis, selectedTrade, bigStat, layout)
     } else {
-      drawSummary(ctx, W, H, pad, 0, T, vis, totalPnl, wr, pf, avgRR, wins.length, losses.length, filtered.length, period, layout)
+      drawSummary(ctx, W, contentH, pad, T, vis, totalPnl, wr, pf, avgRR, wins.length, losses.length, filtered.length, period, layout)
     }
 
-    // Watermark - always shown, no toggle
-    ctx.font = `400 ${Math.round(W * 0.022)}px Arial, sans-serif`
-    ctx.fillStyle = 'rgba(255,255,255,0.18)'
+    // === BOTTOM BAR ===
+    // Separator
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(pad, contentH, W - pad * 2, 1)
+    const barMidY = contentH + bottomBarH / 2
+
+    // EDGE logo left
+    if (vis.edgeLogo) {
+      const lsz = Math.round(W * 0.044)
+      ctx.font = `800 ${lsz}px Arial, sans-serif`
+      ctx.fillStyle = '#fff'
+      const ew = ctx.measureText('EDGE').width
+      ctx.fillText('EDGE', pad, barMidY + lsz * 0.38)
+      ctx.fillStyle = T.accent
+      ctx.fillText('.', pad + ew - 1, barMidY + lsz * 0.38)
+    }
+
+    // Watermark right
+    const wmSz = Math.round(W * 0.021)
+    ctx.font = `400 ${wmSz}px Arial, sans-serif`
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'
     ctx.textAlign = 'right'
-    ctx.fillText('edge-journal.vercel.app', W - pad, H - Math.round(pad * 0.5))
+    ctx.fillText('edge-journal.vercel.app', W - pad, barMidY + wmSz * 0.38)
     ctx.textAlign = 'left'
 
-  }, [lyt, T, vis, cardType, selectedTrade, bigStat, layout, totalPnl, wr, pf, avgRR, wins.length, losses.length, filtered.length, period])
+  }, [lyt, T, vis, cardType, selectedTrade, bigStat, layout, theme, totalPnl, wr, pf, avgRR, wins.length, losses.length, filtered.length, period])
 
   useEffect(() => { draw() }, [draw])
 
   function drawSummary(
-    ctx: CanvasRenderingContext2D, W: number, H: number, pad: number, startY: number,
+    ctx: CanvasRenderingContext2D, W: number, H: number, pad: number,
     T: typeof THEMES.dark, vis: Vis, pnl: number, wr: number, pf: number|null,
     avgRR: number|null, winsC: number, lossesC: number, total: number, period: string, layout: Layout
   ) {
@@ -138,10 +144,9 @@ export default function SharePage() {
     const pLabel: Record<string,string> = { today:'TODAY', week:'THIS WEEK', month:'THIS MONTH', all:'ALL TIME' }
 
     // Layout-specific sizing constants
-    const logoSize   = Math.round(W * 0.052)
-    const logoBottom = vis.edgeLogo ? (pad + logoSize + Math.round(H * 0.04)) : pad
     const periodSize = Math.round(W * 0.024)
-    const periodBottom = logoBottom + periodSize + Math.round(H * 0.02)
+    const topPad = Math.round(H * 0.07)
+    const periodBottom = topPad + periodSize
     const pnlSize    = Math.round(W * (isLandscape ? 0.082 : 0.1))
     const pnlBottom  = periodBottom + pnlSize + Math.round(H * 0.03)
     const dividerY   = pnlBottom + Math.round(H * 0.02)
@@ -209,7 +214,7 @@ export default function SharePage() {
   }
 
   function drawTrade(
-    ctx: CanvasRenderingContext2D, W: number, H: number, pad: number, _startY: number,
+    ctx: CanvasRenderingContext2D, W: number, H: number, pad: number,
     T: typeof THEMES.dark, vis: Vis, trade: NonNullable<typeof selectedTrade>,
     bigStat: BigStat, layout: Layout
   ) {
@@ -219,9 +224,9 @@ export default function SharePage() {
     const isLandscape = layout === 'landscape'
 
     // Absolute positions from top
-    const logoH = vis.edgeLogo ? Math.round(W * 0.12) : Math.round(W * 0.04)
+    const topPad = Math.round(H * 0.07)
     const symSize = Math.round(W * 0.068)
-    const symY = logoH + Math.round(H * 0.04) + symSize
+    const symY = topPad + symSize
     const bigSize = Math.round(W * (isLandscape ? 0.088 : 0.105))
     const bigY = symY + Math.round(H * 0.06) + bigSize
     const smallSize = Math.round(W * 0.036)
@@ -293,12 +298,7 @@ export default function SharePage() {
         ctx.font = `400 ${Math.round(W * 0.026)}px Arial, sans-serif`
         ctx.fillStyle = T.muted
         ctx.fillText(trade.date || '', pad, dateY2)
-        // Re-draw watermark on top
-        ctx.font = `400 ${Math.round(W * 0.022)}px Arial, sans-serif`
-        ctx.fillStyle = 'rgba(255,255,255,0.18)'
-        ctx.textAlign = 'right'
-        ctx.fillText('edge-journal.vercel.app', W - pad, H - Math.round(pad * 0.5))
-        ctx.textAlign = 'left'
+        // watermark drawn by main draw()
       }
       img.src = trade.screenshots[0]
       return
