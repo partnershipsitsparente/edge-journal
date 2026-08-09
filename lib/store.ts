@@ -43,6 +43,8 @@ export const useStore = create<AppState>((set, get) => ({
           loaded: true
         })
       } else {
+        // New user — create their document immediately
+        await setDoc(doc(db, 'users', uid), { trades: [], journalNotes: {}, widgets: [] })
         set({ loaded: true })
       }
     } catch (e) {
@@ -53,15 +55,28 @@ export const useStore = create<AppState>((set, get) => ({
 
   saveData: () => {
     const { userId, trades, journalNotes, widgets } = get()
-    if (!userId) return
+    if (!userId) {
+      console.warn('saveData called but no userId — skipping')
+      return
+    }
     if (saveTimeout) clearTimeout(saveTimeout)
     saveTimeout = setTimeout(async () => {
       try {
         await setDoc(doc(db, 'users', userId), { trades, journalNotes, widgets })
+        console.log('Saved', trades.length, 'trades for', userId)
       } catch (e) {
-        console.error('Save error', e)
+        console.error('Save error:', e)
+        // Retry once after 2s
+        setTimeout(async () => {
+          try {
+            const { userId: uid2, trades: t2, journalNotes: j2, widgets: w2 } = get()
+            if (uid2) await setDoc(doc(db, 'users', uid2), { trades: t2, journalNotes: j2, widgets: w2 })
+          } catch (e2) {
+            console.error('Retry save failed:', e2)
+          }
+        }, 2000)
       }
-    }, 800)
+    }, 600)
   },
 
   addTrade: (trade) => {
