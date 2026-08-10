@@ -7,32 +7,19 @@ import { WidgetConfig, Trade } from '@/lib/types'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
 
-// ── Widget sizes ──────────────────────────────────────────────────────────────
-type WidgetSize = 'sm' | 'md' | 'lg' | 'full'
-type WidgetStyle = 'table' | 'visual'
+type WidgetSize = 'md' | 'lg'
+type WidgetStyle = 'table' | 'donut' | 'hbar' | 'bar'
+interface ExtWidget extends WidgetConfig { size?: WidgetSize; style?: WidgetStyle }
 
-interface ExtWidgetConfig extends WidgetConfig {
-  size?: WidgetSize
-  style?: WidgetStyle
-}
-
-const SIZE_COLS: Record<WidgetSize, string> = {
-  sm:   'span 1',
-  md:   'span 1',
-  lg:   'span 2',
-  full: 'span 2',
-}
-
-const DEFAULT_WIDGETS: ExtWidgetConfig[] = [
-  { id: 'w1', analyzeBy: 'time_of_day', title: 'Time of Day',   cols: ['trades','winrate','avgr','totalr','expectancy'], size: 'md', style: 'table' },
-  { id: 'w2', analyzeBy: 'outcome',     title: 'Results',       cols: ['trades','winrate','avgr','totalr','expectancy'], size: 'md', style: 'table' },
-  { id: 'w3', analyzeBy: 'weekday',     title: 'Weekday',       cols: ['trades','winrate','avgr','pnl','expectancy'],   size: 'lg', style: 'visual' },
-  { id: 'w4', analyzeBy: 'tags',        title: 'Setup Tags',    cols: ['trades','winrate','avgr','totalr','expectancy'], size: 'md', style: 'table' },
-  { id: 'w5', analyzeBy: 'symbol',      title: 'Symbol',        cols: ['trades','winrate','pnl','avgr','pf'],           size: 'md', style: 'table' },
-  { id: 'w6', analyzeBy: 'side',        title: 'Long vs Short', cols: ['trades','winrate','avgr','totalr','expectancy'], size: 'lg', style: 'visual' },
+const DEFAULT_WIDGETS: ExtWidget[] = [
+  { id:'w1', analyzeBy:'time_of_day', title:'Time of Day',   cols:['trades','winrate','avgr','totalr','expectancy'], size:'lg', style:'hbar' },
+  { id:'w2', analyzeBy:'outcome',     title:'Results',       cols:['trades','winrate','avgr','totalr'],              size:'md', style:'donut' },
+  { id:'w3', analyzeBy:'weekday',     title:'Weekday',       cols:['trades','winrate','avgr','pnl','expectancy'],    size:'lg', style:'hbar' },
+  { id:'w4', analyzeBy:'tags',        title:'Setup Tags',    cols:['trades','winrate','avgr','totalr','expectancy'], size:'lg', style:'hbar' },
+  { id:'w5', analyzeBy:'symbol',      title:'Symbol',        cols:['trades','winrate','pnl','avgr','pf'],            size:'md', style:'table' },
+  { id:'w6', analyzeBy:'side',        title:'Long vs Short', cols:['trades','winrate','avgr','totalr'],              size:'md', style:'donut' },
 ]
 
-// ── Data helpers ──────────────────────────────────────────────────────────────
 function getWidgetRows(analyzeBy: string, trades: Trade[]) {
   const groups: Record<string, Trade[]> = {}
   trades.forEach(t => {
@@ -48,16 +35,16 @@ function getWidgetRows(analyzeBy: string, trades: Trade[]) {
       keys = [days[new Date(t.date + 'T12:00:00').getDay()]]
     } else if (analyzeBy === 'month') {
       if (!t.date) return
-      const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
       keys = [months[new Date(t.date + 'T12:00:00').getMonth()]]
     } else if (analyzeBy === 'session') {
       const time = (t.datetime || '').slice(11, 16)
       const [h, m] = time ? time.split(':').map(Number) : [0, 0]
       const mins = h * 60 + m
-      keys = [!time ? 'Unknown' : mins < 570 ? 'Pre-Market' : mins < 660 ? 'NY AM (9:30-11)' : mins < 720 ? 'Mid-Day' : 'Afternoon']
+      keys = [!time ? 'Unknown' : mins < 570 ? 'Pre-Market' : mins < 660 ? 'NY AM' : mins < 720 ? 'Mid-Day' : 'Afternoon']
     } else if (analyzeBy === 'outcome') {
-      const outcomeMap: Record<string, string> = { win: 'Win', loss: 'Loss', be_win: 'BE → Win', be_loss: 'BE → Loss' }
-      keys = [outcomeMap[t.outcome] || t.outcome]
+      const map: Record<string,string> = { win:'Win', loss:'Loss', be_win:'BE → Win', be_loss:'BE → Loss' }
+      keys = [map[t.outcome] || t.outcome]
     } else if (analyzeBy === 'symbol') { keys = [t.ticker || 'Unknown']
     } else if (analyzeBy === 'side') { keys = [t.side ? t.side.charAt(0).toUpperCase() + t.side.slice(1) : 'Unknown']
     } else if (analyzeBy === 'tags') { keys = (t.tags || []).length ? t.tags! : ['Untagged']
@@ -68,170 +55,163 @@ function getWidgetRows(analyzeBy: string, trades: Trade[]) {
 
   const order: Record<string, string[]> = {
     weekday: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],
-    month: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    month: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
   }
   let sortedKeys = Object.keys(groups)
-  if (order[analyzeBy]) sortedKeys.sort((a, b) => order[analyzeBy].indexOf(a) - order[analyzeBy].indexOf(b))
+  if (order[analyzeBy]) sortedKeys.sort((a,b) => order[analyzeBy].indexOf(a) - order[analyzeBy].indexOf(b))
   else if (analyzeBy === 'time_of_day') sortedKeys.sort()
-  else sortedKeys.sort((a, b) => groups[b].length - groups[a].length)
+  else sortedKeys.sort((a,b) => groups[b].length - groups[a].length)
 
   return sortedKeys.map(key => {
     const ts = groups[key]
-    const dec = ts.filter(t => t.outcome === 'win' || t.outcome === 'loss')
-    const w = dec.filter(t => t.outcome === 'win')
-    const l = dec.filter(t => t.outcome === 'loss')
-    const wr = dec.length ? w.length / dec.length * 100 : 0
-    const gW = w.reduce((s, t) => s + (t.pnl || 0), 0)
-    const gL = Math.abs(l.reduce((s, t) => s + (t.pnl || 0), 0))
-    const pf = gL > 0 ? gW / gL : null
-    const rrTs = dec.filter(t => t.rr != null)
-    const avgr = rrTs.length ? rrTs.reduce((s, t) => s + (t.rr || 0), 0) / rrTs.length : 0
-    const totalr = rrTs.reduce((s, t) => s + (t.rr || 0), 0)
-    const aW = w.filter(t => t.rr != null).reduce((s, t) => s + (t.rr || 0), 0) / (w.filter(t => t.rr != null).length || 1)
-    const aL = l.filter(t => t.rr != null).reduce((s, t) => s + Math.abs(t.rr || 0), 0) / (l.filter(t => t.rr != null).length || 1)
-    const expectancy = (wr / 100 * aW) - ((1 - wr / 100) * aL)
-    const pnl = ts.reduce((s, t) => s + (t.pnl || 0), 0)
-    return { label: key, trades: ts.length, winrate: wr, avgr, totalr, expectancy, pnl, pf }
+    const dec = ts.filter(t => t.outcome==='win'||t.outcome==='loss')
+    const w = dec.filter(t => t.outcome==='win')
+    const l = dec.filter(t => t.outcome==='loss')
+    const wr = dec.length ? w.length/dec.length*100 : 0
+    const gW = w.reduce((s,t)=>s+(t.pnl||0),0)
+    const gL = Math.abs(l.reduce((s,t)=>s+(t.pnl||0),0))
+    const pf = gL > 0 ? gW/gL : null
+    const rrTs = dec.filter(t=>t.rr!=null)
+    const avgr = rrTs.length ? rrTs.reduce((s,t)=>s+(t.rr||0),0)/rrTs.length : 0
+    const totalr = rrTs.reduce((s,t)=>s+(t.rr||0),0)
+    const aW = w.filter(t=>t.rr!=null).reduce((s,t)=>s+(t.rr||0),0)/(w.filter(t=>t.rr!=null).length||1)
+    const aL = l.filter(t=>t.rr!=null).reduce((s,t)=>s+Math.abs(t.rr||0),0)/(l.filter(t=>t.rr!=null).length||1)
+    const expectancy = (wr/100*aW)-((1-wr/100)*aL)
+    const pnl = ts.reduce((s,t)=>s+(t.pnl||0),0)
+    return { label:key, trades:ts.length, winrate:wr, avgr, totalr, expectancy, pnl, pf }
   })
 }
 
-// ── Visual Widget (bar chart style) ──────────────────────────────────────────
-function VisualWidget({ w, rows, onRemove, onResize, onStyleToggle }: {
-  w: ExtWidgetConfig
-  rows: ReturnType<typeof getWidgetRows>
-  onRemove: () => void
-  onResize: (size: WidgetSize) => void
-  onStyleToggle: () => void
-}) {
+// ── Horizontal Bar Widget ────────────────────────────────────────────────────
+function HBarWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
+  const max = Math.max(...rows.map((r: any) => Math.abs(r.pnl)), 1)
+  const bestRow = rows.reduce((b: any, r: any) => (!b || r.expectancy > b.expectancy) ? r : b, null)
+
+  return (
+    <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
+      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleChange={onStyleChange} rows={rows} />
+      {!rows.length ? (
+        <div style={{ padding:'32px 18px', textAlign:'center', color:'var(--muted)', fontSize:12 }}>No data — log trades to see patterns</div>
+      ) : (
+        <div style={{ padding:'16px 18px' }}>
+          {rows.map((r: any) => {
+            const isBest = bestRow && r.label === bestRow.label && rows.length > 1
+            const pct = Math.abs(r.pnl) / max * 100
+            const isPos = r.pnl >= 0
+            return (
+              <div key={r.label} style={{ marginBottom: 14 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    {isBest && <span style={{ color:'var(--amber)', fontSize:12 }}>★</span>}
+                    <span style={{ fontSize:13, fontWeight:600, color: isBest ? 'var(--text)' : 'var(--muted)' }}>{r.label}</span>
+                    <span style={{ fontSize:11, color:'var(--muted)', background:'var(--bg3)', padding:'1px 6px', borderRadius:4 }}>{r.trades}</span>
+                  </div>
+                  <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+                    <span style={{ fontSize:12, color: r.winrate>=55?'var(--green)':r.winrate<40?'var(--red)':'var(--muted)', fontFamily:'var(--mono)', fontWeight:600 }}>{r.winrate.toFixed(0)}%</span>
+                    <span style={{ fontSize:12, fontFamily:'var(--mono)', fontWeight:700, color: isPos?'var(--green)':'var(--red)', minWidth:70, textAlign:'right' }}>
+                      {isPos?'+':''}${Math.abs(r.pnl).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ height:7, background:'var(--bg4)', borderRadius:4, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${pct}%`, background: isPos ? 'var(--green)' : 'var(--red)', borderRadius:4, transition:'width .4s', opacity:0.8 }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Donut Widget ─────────────────────────────────────────────────────────────
+function DonutWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<Chart | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current || !rows.length) return
     if (chartRef.current) chartRef.current.destroy()
-    const labels = rows.map(r => r.label)
-    const pnlVals = rows.map(r => +r.pnl.toFixed(2))
-    const wrVals = rows.map(r => +r.winrate.toFixed(1))
+    const colors = rows.map((_: any, i: number) => {
+      const palette = ['#00d084','#ff4d4d','#7c6fcd','#f5a623','#00bcd4','#e91e63']
+      return palette[i % palette.length]
+    })
     chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
+      type: 'doughnut',
       data: {
-        labels,
-        datasets: [
-          { label: 'Net P&L', data: pnlVals, backgroundColor: pnlVals.map(v => v >= 0 ? 'rgba(0,208,132,0.7)' : 'rgba(255,77,77,0.7)'), borderRadius: 4, yAxisID: 'y' },
-          { label: 'Win %', data: wrVals, type: 'line' as const, borderColor: 'rgba(124,111,205,0.8)', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 4, pointBackgroundColor: 'rgba(124,111,205,0.8)', tension: 0.3, yAxisID: 'y2' },
-        ]
+        labels: rows.map((r: any) => r.label),
+        datasets: [{ data: rows.map((r: any) => r.trades), backgroundColor: colors, borderWidth: 0, hoverBorderWidth: 0 }]
       },
       options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
         plugins: {
-          legend: { display: true, labels: { color: '#6b6b80', font: { size: 10 }, boxWidth: 12 } },
-          tooltip: { backgroundColor: '#1e1e2a', bodyColor: '#e8e8f0', titleColor: '#6b6b80' }
-        },
-        scales: {
-          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6b80', font: { size: 10 } } },
-          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6b80', font: { size: 10 }, callback: (v: any) => '$' + v }, position: 'left' },
-          y2: { grid: { display: false }, ticks: { color: '#7c6fcd', font: { size: 10 }, callback: (v: any) => v + '%' }, position: 'right', min: 0, max: 100 }
+          legend: { display: false },
+          tooltip: { backgroundColor:'#1e1e2a', bodyColor:'#e8e8f0', titleColor:'#6b6b80',
+            callbacks: { label: (c: any) => ` ${c.label}: ${c.parsed} trades (${((c.parsed/rows.reduce((s:number,r:any)=>s+r.trades,0))*100).toFixed(0)}%)` }
+          }
         }
       }
     })
     return () => { if (chartRef.current) chartRef.current.destroy() }
   }, [rows])
 
-  const bestRow = rows.reduce((b, r) => (!b || r.expectancy > b.expectancy) ? r : b, null as typeof rows[0] | null)
+  const total = rows.reduce((s: number, r: any) => s + r.trades, 0)
+  const palette = ['#00d084','#ff4d4d','#7c6fcd','#f5a623','#00bcd4','#e91e63']
 
   return (
-    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleToggle={onStyleToggle} rows={rows} />
+    <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
+      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleChange={onStyleChange} rows={rows} />
       {!rows.length ? (
-        <div style={{ padding: '32px 18px', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>No data -- log trades to see patterns</div>
+        <div style={{ padding:'32px 18px', textAlign:'center', color:'var(--muted)', fontSize:12 }}>No data</div>
       ) : (
-        <>
-          {/* Quick stat pills */}
-          <div style={{ display: 'flex', gap: 8, padding: '10px 18px', flexWrap: 'wrap' }}>
-            {rows.slice(0, 5).map(r => (
-              <div key={r.label} style={{ background: 'var(--bg3)', borderRadius: 8, padding: '6px 12px', fontSize: 11 }}>
-                <span style={{ fontWeight: 700, color: r.label === bestRow?.label ? 'var(--green)' : 'var(--text)' }}>
-                  {r.label === bestRow?.label ? '★ ' : ''}{r.label}
-                </span>
-                <span style={{ color: r.winrate >= 55 ? 'var(--green)' : r.winrate < 40 ? 'var(--red)' : 'var(--muted)', marginLeft: 6, fontFamily: 'var(--mono)' }}>
-                  {r.winrate.toFixed(0)}%
-                </span>
-                <span style={{ color: r.pnl >= 0 ? 'var(--green)' : 'var(--red)', marginLeft: 6, fontFamily: 'var(--mono)' }}>
-                  {r.pnl >= 0 ? '+' : ''}${Math.abs(r.pnl).toFixed(0)}
-                </span>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:0, padding:'20px 18px' }}>
+          {/* Donut */}
+          <div style={{ position:'relative', height:160, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <canvas ref={canvasRef} />
+            <div style={{ position:'absolute', textAlign:'center', pointerEvents:'none' }}>
+              <div style={{ fontSize:22, fontWeight:800, fontFamily:'var(--mono)', color:'var(--text)' }}>{total}</div>
+              <div style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.06em' }}>Trades</div>
+            </div>
+          </div>
+          {/* Legend */}
+          <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:10 }}>
+            {rows.map((r: any, i: number) => (
+              <div key={r.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ width:10, height:10, borderRadius:2, background:palette[i%palette.length], flexShrink:0 }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.label}</div>
+                  <div style={{ fontSize:11, color:'var(--muted)' }}>{r.trades} · {r.winrate.toFixed(0)}% WR</div>
+                </div>
+                <div style={{ fontSize:12, fontFamily:'var(--mono)', fontWeight:700, color: r.pnl>=0?'var(--green)':'var(--red)', flexShrink:0 }}>
+                  {r.pnl>=0?'+':''}${Math.abs(r.pnl).toFixed(0)}
+                </div>
               </div>
             ))}
           </div>
-          {/* Chart */}
-          <div style={{ position: 'relative', height: 180, padding: '0 18px 14px' }}>
-            <canvas ref={canvasRef} />
-          </div>
-        </>
+        </div>
       )}
     </div>
   )
 }
 
-// ── Widget Header ─────────────────────────────────────────────────────────────
-function WidgetHeader({ w, onRemove, onResize, onStyleToggle, rows }: {
-  w: ExtWidgetConfig
-  onRemove: () => void
-  onResize: (s: WidgetSize) => void
-  onStyleToggle: () => void
-  rows: ReturnType<typeof getWidgetRows>
-}) {
-  const [showMenu, setShowMenu] = useState(false)
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)', position: 'relative' }}>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700 }}>{w.title}</div>
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{rows.length} groups</div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        {/* Style toggle */}
-        <button onClick={onStyleToggle} title={w.style === 'table' ? 'Switch to visual' : 'Switch to table'}
-          style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-          {w.style === 'table' ? '📊' : '≡'}
-        </button>
-        {/* Size controls */}
-        <div style={{ display: 'flex', gap: 2 }}>
-          {(['sm','lg'] as WidgetSize[]).map(s => (
-            <button key={s} onClick={() => onResize(s === 'sm' ? (w.size === 'lg' || w.size === 'full' ? 'md' : 'lg') : (w.size === 'md' || w.size === 'sm' ? 'lg' : 'md'))}
-              title={s === 'sm' ? 'Shrink' : 'Expand'}
-              style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {s === 'sm' ? '⊟' : '⊞'}
-            </button>
-          ))}
-        </div>
-        <button onClick={onRemove} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: 18, cursor: 'pointer', padding: '2px 4px', borderRadius: 4 }}>×</button>
-      </div>
-    </div>
-  )
-}
-
-// ── Table Widget ──────────────────────────────────────────────────────────────
-function TableWidget({ w, rows, onRemove, onResize, onStyleToggle }: {
-  w: ExtWidgetConfig
-  rows: ReturnType<typeof getWidgetRows>
-  onRemove: () => void
-  onResize: (size: WidgetSize) => void
-  onStyleToggle: () => void
-}) {
+// ── Table Widget ─────────────────────────────────────────────────────────────
+function TableWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
   const colHdr: Record<string,string> = { trades:'Trades', winrate:'Win %', avgr:'Avg R', totalr:'Total R', expectancy:'Expectancy', pnl:'Net P&L', pf:'Profit Factor' }
-  const maxT = Math.max(...rows.map(r => r.trades), 1)
-  const bestRow = rows.reduce((b, r) => (!b || r.expectancy > b.expectancy) ? r : b, null as typeof rows[0] | null)
+  const maxT = Math.max(...rows.map((r:any) => r.trades), 1)
+  const bestRow = rows.reduce((b:any, r:any) => (!b || r.expectancy > b.expectancy) ? r : b, null)
 
   return (
-    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleToggle={onStyleToggle} rows={rows} />
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+    <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
+      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleChange={onStyleChange} rows={rows} />
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
         <thead>
           <tr>
-            <th style={{ textAlign: 'left', padding: '8px 18px', fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--muted)', background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
+            <th style={{ textAlign:'left', padding:'8px 18px', fontSize:10, fontWeight:600, letterSpacing:'.07em', textTransform:'uppercase', color:'var(--muted)', background:'var(--bg3)', borderBottom:'1px solid var(--border)' }}>
               {w.analyzeBy.replace(/_/g,' ')}
             </th>
-            {w.cols.map(c => (
-              <th key={c} style={{ textAlign: 'right', padding: '8px 18px', fontSize: 10, fontWeight: 600, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--muted)', background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
+            {w.cols.map((c: string) => (
+              <th key={c} style={{ textAlign:'right', padding:'8px 18px', fontSize:10, fontWeight:600, letterSpacing:'.07em', textTransform:'uppercase', color:'var(--muted)', background:'var(--bg3)', borderBottom:'1px solid var(--border)' }}>
                 {colHdr[c]}
               </th>
             ))}
@@ -239,15 +219,15 @@ function TableWidget({ w, rows, onRemove, onResize, onStyleToggle }: {
         </thead>
         <tbody>
           {!rows.length ? (
-            <tr><td colSpan={w.cols.length+1} style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>No data -- log trades to see patterns</td></tr>
-          ) : rows.map(r => {
+            <tr><td colSpan={w.cols.length+1} style={{ padding:'24px 18px', textAlign:'center', color:'var(--muted)' }}>No data — log trades to see patterns</td></tr>
+          ) : rows.map((r: any) => {
             const isBest = bestRow && r.label === bestRow.label && rows.length > 1
             return (
               <tr key={r.label} style={{ background: isBest ? 'rgba(0,208,132,0.04)' : undefined }}>
-                <td style={{ padding: '9px 18px', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,.03)', color: isBest ? 'var(--green)' : 'var(--text)' }}>
-                  {isBest ? '★ ' : ''}{r.label}
+                <td style={{ padding:'10px 18px', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,.03)', color: isBest?'var(--green)':'var(--text)' }}>
+                  {isBest && <span style={{ color:'var(--amber)', marginRight:4 }}>★</span>}{r.label}
                 </td>
-                {w.cols.map(c => {
+                {w.cols.map((c: string) => {
                   let v: React.ReactNode = '--'
                   if (c==='trades') v = <div style={{display:'flex',alignItems:'center',gap:6,justifyContent:'flex-end'}}><span>{r.trades}</span><div style={{width:40,height:4,background:'var(--bg4)',borderRadius:2,overflow:'hidden'}}><div style={{height:'100%',width:(r.trades/maxT*100)+'%',background:'var(--accent)',borderRadius:2}} /></div></div>
                   else if (c==='winrate') v = <span style={{color:r.winrate>=55?'var(--green)':r.winrate<40?'var(--red)':'var(--text)',fontFamily:'var(--mono)',fontWeight:600}}>{r.winrate.toFixed(1)}%</span>
@@ -256,13 +236,47 @@ function TableWidget({ w, rows, onRemove, onResize, onStyleToggle }: {
                   else if (c==='expectancy') v = <span style={{color:r.expectancy>=0?'var(--green)':'var(--red)',fontFamily:'var(--mono)'}}>{r.expectancy>=0?'+':''}{r.expectancy.toFixed(2)}</span>
                   else if (c==='pnl') v = <span style={{color:r.pnl>=0?'var(--green)':'var(--red)',fontFamily:'var(--mono)'}}>{r.pnl>=0?'+':''}${Math.abs(r.pnl).toFixed(0)}</span>
                   else if (c==='pf') v = <span style={{fontFamily:'var(--mono)'}}>{r.pf!=null?r.pf.toFixed(2):'--'}</span>
-                  return <td key={c} style={{padding:'9px 18px',textAlign:'right',borderBottom:'1px solid rgba(255,255,255,.03)'}}>{v}</td>
+                  return <td key={c} style={{padding:'10px 18px',textAlign:'right',borderBottom:'1px solid rgba(255,255,255,.03)'}}>{v}</td>
                 })}
               </tr>
             )
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ── Widget Header ─────────────────────────────────────────────────────────────
+function WidgetHeader({ w, onRemove, onResize, onStyleChange, rows }: any) {
+  const styles = [
+    { id:'hbar',  icon:'▬', label:'Bars' },
+    { id:'donut', icon:'◎', label:'Donut' },
+    { id:'table', icon:'≡', label:'Table' },
+  ]
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--border)' }}>
+      <div>
+        <div style={{ fontSize:13, fontWeight:700 }}>{w.title}</div>
+        <div style={{ fontSize:11, color:'var(--muted)', marginTop:2 }}>{rows.length} groups · {rows.reduce((s:number,r:any)=>s+r.trades,0)} trades</div>
+      </div>
+      <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+        {/* Style switcher */}
+        <div style={{ display:'flex', gap:2, background:'var(--bg3)', borderRadius:6, padding:2 }}>
+          {styles.map(s => (
+            <button key={s.id} onClick={() => onStyleChange(s.id)} title={s.label}
+              style={{ background: w.style===s.id ? 'var(--bg4)' : 'transparent', border:'none', color: w.style===s.id ? 'var(--text)' : 'var(--muted)', padding:'4px 8px', borderRadius:4, cursor:'pointer', fontSize:13, transition:'all .15s' }}>
+              {s.icon}
+            </button>
+          ))}
+        </div>
+        {/* Size toggle */}
+        <button onClick={() => onResize(w.size==='lg'?'md':'lg')} title="Toggle size"
+          style={{ background:'var(--bg3)', border:'none', color:'var(--muted)', width:26, height:26, borderRadius:6, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          {w.size==='lg' ? '⊟' : '⊞'}
+        </button>
+        <button onClick={onRemove} style={{ background:'transparent', border:'none', color:'var(--muted)', fontSize:18, cursor:'pointer', padding:'2px 4px' }}>×</button>
+      </div>
     </div>
   )
 }
@@ -274,21 +288,22 @@ export default function ReportsPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [newAnalyzeBy, setNewAnalyzeBy] = useState('time_of_day')
   const [newTitle, setNewTitle] = useState('')
-  const [newCols, setNewCols] = useState(['trades','winrate','avgr','totalr','expectancy'])
   const [newSize, setNewSize] = useState<WidgetSize>('md')
-  const [newStyle, setNewStyle] = useState<WidgetStyle>('table')
-  const [dragId, setDragId] = useState<string | null>(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [newStyle, setNewStyle] = useState<WidgetStyle>('hbar')
+  const [dragId, setDragId] = useState<string|null>(null)
+  const [dragOverId, setDragOverId] = useState<string|null>(null)
   const equityRef = useRef<HTMLCanvasElement>(null)
   const dailyRef = useRef<HTMLCanvasElement>(null)
-  const eChart = useRef<Chart | null>(null)
-  const dChart = useRef<Chart | null>(null)
+  const donutRef = useRef<HTMLCanvasElement>(null)
+  const eChart = useRef<Chart|null>(null)
+  const dChart = useRef<Chart|null>(null)
+  const donutChart = useRef<Chart|null>(null)
 
-  const widgets: ExtWidgetConfig[] = (storedWidgets.length ? storedWidgets : DEFAULT_WIDGETS) as ExtWidgetConfig[]
+  const widgets: ExtWidget[] = (storedWidgets.length ? storedWidgets : DEFAULT_WIDGETS) as ExtWidget[]
   const filtered = periodFilter(trades, period)
-  const decided = getDecided(filtered)
   const wins = getWins(filtered)
   const losses = getLosses(filtered)
+  const decided = getDecided(filtered)
   const totalPnl = calcPnl(filtered)
   const wr = getWinRate(filtered)
   const pf = getProfitFactor(filtered)
@@ -302,6 +317,7 @@ export default function ReportsPage() {
   filtered.forEach(t=>{const d=(t.date||'').slice(0,10);if(d)byDay[d]=(byDay[d]||0)+(t.pnl||0)})
   const dayPnls = Object.values(byDay)
 
+  // Equity chart
   useEffect(()=>{
     if(!equityRef.current) return
     const sorted=[...filtered].sort((a,b)=>(a.date||'').localeCompare(b.date||''))
@@ -310,53 +326,53 @@ export default function ReportsPage() {
     if(eChart.current) eChart.current.destroy()
     const isPos=(data[data.length-1]||0)>=0;const lc=isPos?'#00d084':'#ff4d4d'
     eChart.current=new Chart(equityRef.current,{
-      type:'line',data:{labels,datasets:[{data,borderColor:lc,borderWidth:2,pointRadius:data.length>30?0:3,tension:0.3,fill:true,backgroundColor:(ctx:any)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);g.addColorStop(0,isPos?'rgba(0,208,132,0.18)':'rgba(255,77,77,0.15)');g.addColorStop(1,'rgba(0,0,0,0)');return g}}]},
+      type:'line',data:{labels,datasets:[{data,borderColor:lc,borderWidth:2.5,pointRadius:data.length>30?0:4,pointBackgroundColor:lc,tension:0.4,fill:true,backgroundColor:(ctx:any)=>{const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);g.addColorStop(0,isPos?'rgba(0,208,132,0.2)':'rgba(255,77,77,0.18)');g.addColorStop(1,'rgba(0,0,0,0)');return g}}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e1e2a',bodyColor:'#e8e8f0',titleColor:'#6b6b80',callbacks:{label:(c:any)=>' $'+c.parsed.y.toFixed(2)}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6b80',font:{size:10},maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6b80',font:{size:10},callback:(v:any)=>'$'+v}}}}
     })
   },[filtered.length,period])
 
+  // Daily bar
   useEffect(()=>{
     if(!dailyRef.current) return
     const days=Object.keys(byDay).sort();const vals=days.map(d=>+byDay[d].toFixed(2))
     if(dChart.current) dChart.current.destroy()
     dChart.current=new Chart(dailyRef.current,{
-      type:'bar',data:{labels:days.map(d=>d.slice(5)),datasets:[{data:vals,backgroundColor:vals.map(v=>v>=0?'rgba(0,208,132,0.8)':'rgba(255,77,77,0.8)'),borderRadius:3,borderSkipped:false as const}]},
+      type:'bar',data:{labels:days.map(d=>d.slice(5)),datasets:[{data:vals,backgroundColor:vals.map(v=>v>=0?'rgba(0,208,132,0.75)':'rgba(255,77,77,0.75)'),borderRadius:4,borderSkipped:false as const}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e1e2a',bodyColor:'#e8e8f0',titleColor:'#6b6b80',callbacks:{label:(c:any)=>' $'+c.parsed.y.toFixed(2)}}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6b80',font:{size:10},maxTicksLimit:10}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6b80',font:{size:10},callback:(v:any)=>'$'+v}}}}
     })
   },[filtered.length,period])
 
-  const updateWidget = (id: string, changes: Partial<ExtWidgetConfig>) => {
-    setWidgets(widgets.map(w => w.id === id ? {...w,...changes} : w) as WidgetConfig[])
+  // Win rate donut
+  useEffect(()=>{
+    if(!donutRef.current) return
+    if(donutChart.current) donutChart.current.destroy()
+    donutChart.current=new Chart(donutRef.current,{
+      type:'doughnut',
+      data:{labels:['Wins','Losses'],datasets:[{data:[wins.length,losses.length],backgroundColor:['#00d084','#ff4d4d'],borderWidth:0,hoverBorderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e1e2a',bodyColor:'#e8e8f0',titleColor:'#6b6b80'}}}
+    })
+  },[wins.length,losses.length])
+
+  const updateWidget = (id:string, changes:Partial<ExtWidget>) => setWidgets(widgets.map(w=>w.id===id?{...w,...changes}:w) as WidgetConfig[])
+  const removeWidget = (id:string) => { if(!confirm('Remove widget?')) return; setWidgets(widgets.filter(w=>w.id!==id) as WidgetConfig[]) }
+
+  const handleDrop = (targetId:string) => {
+    if(!dragId||dragId===targetId){setDragId(null);setDragOverId(null);return}
+    const arr=[...widgets]
+    const from=arr.findIndex(w=>w.id===dragId),to=arr.findIndex(w=>w.id===targetId)
+    const [item]=arr.splice(from,1);arr.splice(to,0,item)
+    setWidgets(arr as WidgetConfig[]);setDragId(null);setDragOverId(null)
   }
-  const removeWidget = (id: string) => { if(!confirm('Remove widget?')) return; setWidgets(widgets.filter(w=>w.id!==id) as WidgetConfig[]) }
 
-  // Drag to reorder
-  const handleDragStart = (id: string) => setDragId(id)
-  const handleDragOver = (e: React.DragEvent, id: string) => { e.preventDefault(); setDragOverId(id) }
-  const handleDrop = (targetId: string) => {
-    if (!dragId || dragId === targetId) { setDragId(null); setDragOverId(null); return }
-    const arr = [...widgets]
-    const from = arr.findIndex(w => w.id === dragId)
-    const to = arr.findIndex(w => w.id === targetId)
-    const [item] = arr.splice(from, 1)
-    arr.splice(to, 0, item)
-    setWidgets(arr as WidgetConfig[])
-    setDragId(null); setDragOverId(null)
+  const addWidget=()=>{
+    const labelMap:Record<string,string>={time_of_day:'Time of Day',weekday:'Weekday',month:'Month',session:'Session',outcome:'Results',symbol:'Symbol',side:'Long vs Short',tags:'Setup Tags',mistakes:'Mistakes',grade:'Trade Rating'}
+    const w:ExtWidget={id:'w'+Date.now(),analyzeBy:newAnalyzeBy,title:newTitle||labelMap[newAnalyzeBy]||newAnalyzeBy,cols:['trades','winrate','avgr','totalr','expectancy'],size:newSize,style:newStyle}
+    setWidgets([...widgets,w] as WidgetConfig[]);setShowAdd(false);setNewTitle('')
   }
 
-  const addWidget = () => {
-    const labelMap: Record<string,string> = { time_of_day:'Time of Day',weekday:'Weekday',month:'Month',session:'Session',outcome:'Results',symbol:'Symbol',side:'Long vs Short',tags:'Setup Tags',mistakes:'Mistakes',grade:'Trade Rating' }
-    const w: ExtWidgetConfig = { id:'w'+Date.now(), analyzeBy:newAnalyzeBy, title:newTitle||labelMap[newAnalyzeBy]||newAnalyzeBy, cols:newCols.length?newCols:['trades','winrate','avgr','totalr','expectancy'], size:newSize, style:newStyle }
-    setWidgets([...widgets,w] as WidgetConfig[])
-    setShowAdd(false); setNewTitle('')
-  }
-  const toggleCol = (col:string) => setNewCols(prev=>prev.includes(col)?prev.filter(c=>c!==col):[...prev,col])
-
-  const colHdr: Record<string,string> = { trades:'Trades',winrate:'Win %',avgr:'Avg R',totalr:'Total R',expectancy:'Expectancy',pnl:'Net P&L',pf:'Profit Factor' }
-
-  const summaryStats = [
+  const summaryStats=[
     {l:'Net P&L',v:(totalPnl>=0?'+':'')+'$'+Math.abs(totalPnl).toFixed(2),c:totalPnl>0?'var(--green)':totalPnl<0?'var(--red)':''},
-    {l:'Trade Expectancy',v:exp!=null?(exp>=0?'+':'')+'$'+Math.abs(exp).toFixed(2):'--',c:exp!=null&&exp>=0?'var(--green)':'var(--red)'},
+    {l:'Expectancy',v:exp!=null?(exp>=0?'+':'')+'$'+Math.abs(exp).toFixed(2):'--',c:exp!=null&&exp>=0?'var(--green)':'var(--red)'},
     {l:'Avg Trade P&L',v:filtered.length?(totalPnl>=0?'+':'')+'$'+Math.abs(totalPnl/filtered.length).toFixed(2):'--',c:totalPnl>=0?'var(--green)':'var(--red)'},
     {l:'Avg Daily P&L',v:dayPnls.length?(dayPnls.reduce((a,b)=>a+b,0)/dayPnls.length>=0?'+':'')+'$'+Math.abs(dayPnls.reduce((a,b)=>a+b,0)/dayPnls.length).toFixed(2):'--',c:''},
     {l:'Win %',v:wr.toFixed(2)+'%',c:wr>=55?'var(--green)':wr<40?'var(--red)':''},
@@ -373,12 +389,21 @@ export default function ReportsPage() {
     {l:'Logged Days',v:String(dayPnls.length),c:''},
   ]
 
+  const renderWidget = (w: ExtWidget) => {
+    const rows = getWidgetRows(w.analyzeBy, filtered)
+    const style = w.style || 'table'
+    const props = { w, rows, onRemove:()=>removeWidget(w.id), onResize:(s:WidgetSize)=>updateWidget(w.id,{size:s}), onStyleChange:(s:WidgetStyle)=>updateWidget(w.id,{style:s}) }
+    if (style === 'hbar') return <HBarWidget {...props} />
+    if (style === 'donut') return <DonutWidget {...props} />
+    return <TableWidget {...props} />
+  }
+
   return (
     <AppFrame>
       <div className="page-fade">
         {showAdd && (
           <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowAdd(false)}>
-            <div className="modal" style={{width:560}}>
+            <div className="modal" style={{width:480}}>
               <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>Add Widget</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
                 <div>
@@ -391,17 +416,15 @@ export default function ReportsPage() {
                 </div>
                 <div>
                   <label style={{fontSize:11,fontWeight:600,letterSpacing:'.07em',textTransform:'uppercase' as const,color:'var(--muted)',marginBottom:6,display:'block'}}>Title</label>
-                  <input className="form-input" value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="Optional custom title" />
+                  <input className="form-input" value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="Optional" />
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
                 <div>
                   <label style={{fontSize:11,fontWeight:600,letterSpacing:'.07em',textTransform:'uppercase' as const,color:'var(--muted)',marginBottom:6,display:'block'}}>Style</label>
-                  <div style={{display:'flex',gap:8}}>
-                    {(['table','visual'] as WidgetStyle[]).map(s=>(
-                      <button key={s} onClick={()=>setNewStyle(s)} style={{flex:1,padding:'10px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${newStyle===s?'var(--accent)':'var(--border)'}`,background:newStyle===s?'rgba(124,111,205,0.1)':'var(--bg3)',color:newStyle===s?'var(--accent)':'var(--muted)',fontWeight:600,fontSize:12}}>
-                        {s==='table'?'≡ Table':'📊 Visual'}
-                      </button>
+                  <div style={{display:'flex',gap:6}}>
+                    {([['hbar','▬ Bars'],['donut','◎ Donut'],['table','≡ Table']] as [WidgetStyle,string][]).map(([s,l])=>(
+                      <button key={s} onClick={()=>setNewStyle(s)} style={{flex:1,padding:'8px 6px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${newStyle===s?'var(--accent)':'var(--border)'}`,background:newStyle===s?'rgba(124,111,205,0.1)':'var(--bg3)',color:newStyle===s?'var(--accent)':'var(--muted)',fontWeight:600,fontSize:11}}>{l}</button>
                     ))}
                   </div>
                 </div>
@@ -409,21 +432,9 @@ export default function ReportsPage() {
                   <label style={{fontSize:11,fontWeight:600,letterSpacing:'.07em',textTransform:'uppercase' as const,color:'var(--muted)',marginBottom:6,display:'block'}}>Size</label>
                   <div style={{display:'flex',gap:6}}>
                     {([['md','Half'],['lg','Full']] as [WidgetSize,string][]).map(([s,l])=>(
-                      <button key={s} onClick={()=>setNewSize(s)} style={{flex:1,padding:'8px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${newSize===s?'var(--accent)':'var(--border)'}`,background:newSize===s?'rgba(124,111,205,0.1)':'var(--bg3)',color:newSize===s?'var(--accent)':'var(--muted)',fontWeight:600,fontSize:12}}>
-                        {l}
-                      </button>
+                      <button key={s} onClick={()=>setNewSize(s)} style={{flex:1,padding:'8px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${newSize===s?'var(--accent)':'var(--border)'}`,background:newSize===s?'rgba(124,111,205,0.1)':'var(--bg3)',color:newSize===s?'var(--accent)':'var(--muted)',fontWeight:600,fontSize:12}}>{l}</button>
                     ))}
                   </div>
-                </div>
-              </div>
-              <div style={{marginBottom:20}}>
-                <label style={{fontSize:11,fontWeight:600,letterSpacing:'.07em',textTransform:'uppercase' as const,color:'var(--muted)',marginBottom:8,display:'block'}}>Columns (table style)</label>
-                <div style={{display:'flex',flexWrap:'wrap' as const,gap:6}}>
-                  {Object.entries(colHdr).map(([col,lbl])=>(
-                    <label key={col} onClick={()=>toggleCol(col)} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,background:'var(--bg3)',border:`1px solid ${newCols.includes(col)?'var(--accent)':'var(--border)'}`,borderRadius:6,padding:'5px 10px',cursor:'pointer',color:newCols.includes(col)?'var(--accent)':'var(--text)'}}>
-                      <input type="checkbox" checked={newCols.includes(col)} onChange={()=>{}} style={{accentColor:'var(--accent)'}} />{lbl}
-                    </label>
-                  ))}
                 </div>
               </div>
               <div style={{display:'flex',gap:10}}>
@@ -434,6 +445,7 @@ export default function ReportsPage() {
           </div>
         )}
 
+        {/* HEADER */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
           <div className="page-title">Reports</div>
           <div style={{display:'flex',gap:8}}>
@@ -444,19 +456,39 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* CHARTS */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
-          <div className="card" style={{height:280}}>
-            <div style={{fontSize:11,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:'var(--muted)',marginBottom:12}}>Net P&L -- Cumulative</div>
-            <div style={{position:'relative',height:220}}><canvas ref={equityRef} /></div>
+        {/* TOP: Equity + Daily + Win Rate Donut */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 260px',gap:14,marginBottom:14}}>
+          <div className="card" style={{height:260}}>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:'var(--muted)',marginBottom:12}}>Net P&L — Cumulative</div>
+            <div style={{position:'relative',height:200}}><canvas ref={equityRef} /></div>
           </div>
-          <div className="card" style={{height:280}}>
+          <div className="card" style={{height:260}}>
             <div style={{fontSize:11,fontWeight:700,letterSpacing:'.07em',textTransform:'uppercase',color:'var(--muted)',marginBottom:12}}>Daily P&L</div>
-            <div style={{position:'relative',height:220}}><canvas ref={dailyRef} /></div>
+            <div style={{position:'relative',height:200}}><canvas ref={dailyRef} /></div>
+          </div>
+          {/* Win rate donut */}
+          <div className="card" style={{height:260,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16}}>
+            <div style={{position:'relative',width:140,height:140}}>
+              <canvas ref={donutRef} />
+              <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+                <div style={{fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:wr>=55?'var(--green)':wr<40?'var(--red)':'var(--text)'}}>{wr.toFixed(1)}%</div>
+                <div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>Win Rate</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:16}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)'}}>{wins.length}</div>
+                <div style={{fontSize:10,color:'var(--muted)'}}>Wins</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:800,fontFamily:'var(--mono)',color:'var(--red)'}}>{losses.length}</div>
+                <div style={{fontSize:10,color:'var(--muted)'}}>Losses</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* SUMMARY */}
+        {/* SUMMARY GRID */}
         <div className="card" style={{marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:16}}>Summary</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)'}}>
@@ -479,7 +511,7 @@ export default function ReportsPage() {
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:700}}>BE Impact Analysis</div>
-                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{bei.count} BE trade{bei.count!==1?'s':''} -- excluded from Win Rate and R:R</div>
+                  <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{bei.count} BE trade{bei.count!==1?'s':''} — excluded from Win Rate and R:R</div>
                 </div>
                 <div style={{textAlign:'right'}}>
                   <div style={{fontSize:11,color:'var(--muted)'}}>Net BE Impact</div>
@@ -514,50 +546,24 @@ export default function ReportsPage() {
           )
         })()}
 
-        {/* DRAG-AND-DROP WIDGET GRID */}
+        {/* WIDGETS */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14}}>
           {!widgets.length ? (
             <div className="empty-state" style={{gridColumn:'1/-1'}}>
-              <div style={{fontSize:36}}>📊</div>
-              <div>No widgets yet</div>
-              <div style={{fontSize:12}}>Click + Add Widget to build your first report</div>
+              <div style={{fontSize:36}}>📊</div><div>No widgets yet</div>
+              <div style={{fontSize:12}}>Click + Add Widget</div>
             </div>
           ) : widgets.map(w => {
-            const rows = getWidgetRows(w.analyzeBy, filtered)
-            const size = (w as ExtWidgetConfig).size || 'md'
-            const style = (w as ExtWidgetConfig).style || 'table'
-            const isDragging = dragId === w.id
-            const isDragOver = dragOverId === w.id
+            const size = (w as ExtWidget).size || 'md'
+            const isDragging = dragId===w.id, isDragOver = dragOverId===w.id
             return (
-              <div
-                key={w.id}
-                draggable
-                onDragStart={()=>handleDragStart(w.id)}
-                onDragOver={e=>handleDragOver(e, w.id)}
+              <div key={w.id} draggable
+                onDragStart={()=>setDragId(w.id)}
+                onDragOver={e=>{e.preventDefault();setDragOverId(w.id)}}
                 onDrop={()=>handleDrop(w.id)}
                 onDragEnd={()=>{setDragId(null);setDragOverId(null)}}
-                style={{
-                  gridColumn: SIZE_COLS[size],
-                  opacity: isDragging ? 0.4 : 1,
-                  outline: isDragOver ? '2px solid var(--accent)' : 'none',
-                  borderRadius: 12,
-                  transition: 'opacity .2s, outline .15s',
-                  cursor: 'grab',
-                }}
-              >
-                {style === 'visual' ? (
-                  <VisualWidget w={w as ExtWidgetConfig} rows={rows}
-                    onRemove={()=>removeWidget(w.id)}
-                    onResize={s=>updateWidget(w.id,{size:s})}
-                    onStyleToggle={()=>updateWidget(w.id,{style:(style as string)==='table'?'visual':'table'})}
-                  />
-                ) : (
-                  <TableWidget w={w as ExtWidgetConfig} rows={rows}
-                    onRemove={()=>removeWidget(w.id)}
-                    onResize={s=>updateWidget(w.id,{size:s})}
-                    onStyleToggle={()=>updateWidget(w.id,{style:(style as string)==='table'?'visual':'table'})}
-                  />
-                )}
+                style={{ gridColumn:size==='lg'?'span 2':'span 1', opacity:isDragging?0.4:1, outline:isDragOver?'2px solid var(--accent)':'none', borderRadius:12, transition:'opacity .2s', cursor:'grab' }}>
+                {renderWidget(w as ExtWidget)}
               </div>
             )
           })}
