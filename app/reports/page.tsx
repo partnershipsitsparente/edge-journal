@@ -7,17 +7,16 @@ import { WidgetConfig, Trade } from '@/lib/types'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
 
-type WidgetSize = 'md' | 'lg'
-type WidgetStyle = 'table' | 'donut' | 'hbar' | 'bar'
-interface ExtWidget extends WidgetConfig { size?: WidgetSize; style?: WidgetStyle }
+type WidgetStyle = 'table' | 'donut' | 'hbar'
+interface ExtWidget extends WidgetConfig { style?: WidgetStyle }
 
 const DEFAULT_WIDGETS: ExtWidget[] = [
-  { id:'w1', analyzeBy:'time_of_day', title:'Time of Day',   cols:['trades','winrate','avgr','totalr','expectancy'], size:'lg', style:'hbar' },
-  { id:'w2', analyzeBy:'outcome',     title:'Results',       cols:['trades','winrate','avgr','totalr'],              size:'md', style:'donut' },
-  { id:'w3', analyzeBy:'weekday',     title:'Weekday',       cols:['trades','winrate','avgr','pnl','expectancy'],    size:'lg', style:'hbar' },
-  { id:'w4', analyzeBy:'tags',        title:'Setup Tags',    cols:['trades','winrate','avgr','totalr','expectancy'], size:'lg', style:'hbar' },
-  { id:'w5', analyzeBy:'symbol',      title:'Symbol',        cols:['trades','winrate','pnl','avgr','pf'],            size:'md', style:'table' },
-  { id:'w6', analyzeBy:'side',        title:'Long vs Short', cols:['trades','winrate','avgr','totalr'],              size:'md', style:'donut' },
+  { id:'w1', analyzeBy:'time_of_day', title:'Time of Day',   cols:['trades','winrate','avgr','totalr','expectancy'], style:'hbar' },
+  { id:'w2', analyzeBy:'outcome',     title:'Results',       cols:['trades','winrate','avgr','totalr'],              style:'donut' },
+  { id:'w3', analyzeBy:'weekday',     title:'Weekday',       cols:['trades','winrate','avgr','pnl','expectancy'],    style:'hbar' },
+  { id:'w4', analyzeBy:'tags',        title:'Setup Tags',    cols:['trades','winrate','avgr','totalr','expectancy'], style:'hbar' },
+  { id:'w5', analyzeBy:'symbol',      title:'Symbol',        cols:['trades','winrate','pnl','avgr','pf'],            style:'table' },
+  { id:'w6', analyzeBy:'side',        title:'Long vs Short', cols:['trades','winrate','avgr','totalr'],              style:'donut' },
 ]
 
 function getWidgetRows(analyzeBy: string, trades: Trade[]) {
@@ -83,13 +82,13 @@ function getWidgetRows(analyzeBy: string, trades: Trade[]) {
 }
 
 // ── Horizontal Bar Widget ────────────────────────────────────────────────────
-function HBarWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
+function HBarWidget({ w, rows, onRemove, onStyleChange }: any) {
   const max = Math.max(...rows.map((r: any) => Math.abs(r.pnl)), 1)
   const bestRow = rows.reduce((b: any, r: any) => (!b || r.expectancy > b.expectancy) ? r : b, null)
 
   return (
     <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
-      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleChange={onStyleChange} rows={rows} />
+      <WidgetHeader w={w} onRemove={onRemove} onStyleChange={onStyleChange} rows={rows} />
       {!rows.length ? (
         <div style={{ padding:'32px 18px', textAlign:'center', color:'var(--muted)', fontSize:12 }}>No data — log trades to see patterns</div>
       ) : (
@@ -126,7 +125,7 @@ function HBarWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
 }
 
 // ── Donut Widget ─────────────────────────────────────────────────────────────
-function DonutWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
+function DonutWidget({ w, rows, onRemove, onStyleChange }: any) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<Chart | null>(null)
 
@@ -161,7 +160,7 @@ function DonutWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
 
   return (
     <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
-      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleChange={onStyleChange} rows={rows} />
+      <WidgetHeader w={w} onRemove={onRemove} onStyleChange={onStyleChange} rows={rows} />
       {!rows.length ? (
         <div style={{ padding:'32px 18px', textAlign:'center', color:'var(--muted)', fontSize:12 }}>No data</div>
       ) : (
@@ -196,14 +195,14 @@ function DonutWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
 }
 
 // ── Table Widget ─────────────────────────────────────────────────────────────
-function TableWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
+function TableWidget({ w, rows, onRemove, onStyleChange }: any) {
   const colHdr: Record<string,string> = { trades:'Trades', winrate:'Win %', avgr:'Avg R', totalr:'Total R', expectancy:'Expectancy', pnl:'Net P&L', pf:'Profit Factor' }
   const maxT = Math.max(...rows.map((r:any) => r.trades), 1)
   const bestRow = rows.reduce((b:any, r:any) => (!b || r.expectancy > b.expectancy) ? r : b, null)
 
   return (
     <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
-      <WidgetHeader w={w} onRemove={onRemove} onResize={onResize} onStyleChange={onStyleChange} rows={rows} />
+      <WidgetHeader w={w} onRemove={onRemove} onStyleChange={onStyleChange} rows={rows} />
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
         <thead>
           <tr>
@@ -248,7 +247,7 @@ function TableWidget({ w, rows, onRemove, onResize, onStyleChange }: any) {
 }
 
 // ── Widget Header ─────────────────────────────────────────────────────────────
-function WidgetHeader({ w, onRemove, onResize, onStyleChange, rows }: any) {
+function WidgetHeader({ w, onRemove, onStyleChange, rows }: any) {
   const styles = [
     { id:'hbar',  icon:'▬', label:'Bars' },
     { id:'donut', icon:'◎', label:'Donut' },
@@ -270,11 +269,7 @@ function WidgetHeader({ w, onRemove, onResize, onStyleChange, rows }: any) {
             </button>
           ))}
         </div>
-        {/* Size toggle */}
-        <button onClick={() => onResize(w.size==='lg'?'md':'lg')} title="Toggle size"
-          style={{ background:'var(--bg3)', border:'none', color:'var(--muted)', width:26, height:26, borderRadius:6, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          {w.size==='lg' ? '⊟' : '⊞'}
-        </button>
+
         <button onClick={onRemove} style={{ background:'transparent', border:'none', color:'var(--muted)', fontSize:18, cursor:'pointer', padding:'2px 4px' }}>×</button>
       </div>
     </div>
@@ -288,7 +283,6 @@ export default function ReportsPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [newAnalyzeBy, setNewAnalyzeBy] = useState('time_of_day')
   const [newTitle, setNewTitle] = useState('')
-  const [newSize, setNewSize] = useState<WidgetSize>('md')
   const [newStyle, setNewStyle] = useState<WidgetStyle>('hbar')
   const [dragId, setDragId] = useState<string|null>(null)
   const [dragOverId, setDragOverId] = useState<string|null>(null)
@@ -366,7 +360,7 @@ export default function ReportsPage() {
 
   const addWidget=()=>{
     const labelMap:Record<string,string>={time_of_day:'Time of Day',weekday:'Weekday',month:'Month',session:'Session',outcome:'Results',symbol:'Symbol',side:'Long vs Short',tags:'Setup Tags',mistakes:'Mistakes',grade:'Trade Rating'}
-    const w:ExtWidget={id:'w'+Date.now(),analyzeBy:newAnalyzeBy,title:newTitle||labelMap[newAnalyzeBy]||newAnalyzeBy,cols:['trades','winrate','avgr','totalr','expectancy'],size:newSize,style:newStyle}
+    const w:ExtWidget={id:'w'+Date.now(),analyzeBy:newAnalyzeBy,title:newTitle||labelMap[newAnalyzeBy]||newAnalyzeBy,cols:['trades','winrate','avgr','totalr','expectancy'],style:newStyle}
     setWidgets([...widgets,w] as WidgetConfig[]);setShowAdd(false);setNewTitle('')
   }
 
@@ -392,7 +386,7 @@ export default function ReportsPage() {
   const renderWidget = (w: ExtWidget) => {
     const rows = getWidgetRows(w.analyzeBy, filtered)
     const style = w.style || 'table'
-    const props = { w, rows, onRemove:()=>removeWidget(w.id), onResize:(s:WidgetSize)=>updateWidget(w.id,{size:s}), onStyleChange:(s:WidgetStyle)=>updateWidget(w.id,{style:s}) }
+    const props = { w, rows, onRemove:()=>removeWidget(w.id), onStyleChange:(s:WidgetStyle)=>updateWidget(w.id,{style:s}) }
     if (style === 'hbar') return <HBarWidget {...props} />
     if (style === 'donut') return <DonutWidget {...props} />
     return <TableWidget {...props} />
@@ -428,14 +422,7 @@ export default function ReportsPage() {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <label style={{fontSize:11,fontWeight:600,letterSpacing:'.07em',textTransform:'uppercase' as const,color:'var(--muted)',marginBottom:6,display:'block'}}>Size</label>
-                  <div style={{display:'flex',gap:6}}>
-                    {([['md','Half'],['lg','Full']] as [WidgetSize,string][]).map(([s,l])=>(
-                      <button key={s} onClick={()=>setNewSize(s)} style={{flex:1,padding:'8px',borderRadius:8,cursor:'pointer',fontFamily:'inherit',border:`1px solid ${newSize===s?'var(--accent)':'var(--border)'}`,background:newSize===s?'rgba(124,111,205,0.1)':'var(--bg3)',color:newSize===s?'var(--accent)':'var(--muted)',fontWeight:600,fontSize:12}}>{l}</button>
-                    ))}
-                  </div>
-                </div>
+  
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button className="btn" onClick={()=>setShowAdd(false)} style={{color:'var(--muted)'}}>Cancel</button>
@@ -554,7 +541,6 @@ export default function ReportsPage() {
               <div style={{fontSize:12}}>Click + Add Widget</div>
             </div>
           ) : widgets.map(w => {
-            const size = (w as ExtWidget).size || 'md'
             const isDragging = dragId===w.id, isDragOver = dragOverId===w.id
             return (
               <div key={w.id} draggable
@@ -562,7 +548,7 @@ export default function ReportsPage() {
                 onDragOver={e=>{e.preventDefault();setDragOverId(w.id)}}
                 onDrop={()=>handleDrop(w.id)}
                 onDragEnd={()=>{setDragId(null);setDragOverId(null)}}
-                style={{ gridColumn:size==='lg'?'span 2':'span 1', opacity:isDragging?0.4:1, outline:isDragOver?'2px solid var(--accent)':'none', borderRadius:12, transition:'opacity .2s', cursor:'grab' }}>
+                style={{ opacity:isDragging?0.4:1, outline:isDragOver?'2px solid var(--accent)':'none', borderRadius:12, transition:'opacity .2s', cursor:'grab' }}>
                 {renderWidget(w as ExtWidget)}
               </div>
             )
